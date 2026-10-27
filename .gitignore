@@ -60,3 +60,9 @@ bentopdf-pymupdf-wasm/
 MEMORY.md
 /dist-editor/
 
+
+# AI agent instructions and plans (local only)
+AGENTS.md
+CLAUDE.md
+.claude/
+docs/superpowers/
