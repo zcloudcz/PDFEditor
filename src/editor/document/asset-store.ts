@@ -10,7 +10,9 @@ export async function assetHash(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
 }
 export function decodeAsset(base64: string): Uint8Array {
-  if (typeof base64 !== 'string' || !base64.length || base64.length > MAX_PROJECT_BYTES || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)) throw new Error('Invalid embedded asset');
+  // Length check plus a flat character class instead of a repeated 4-char group: the grouped
+  // regex overflows the regex stack on payloads over ~4 MB, which broke autosave for large PDFs.
+  if (typeof base64 !== 'string' || !base64.length || base64.length > MAX_PROJECT_BYTES || base64.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error('Invalid embedded asset');
   const bytes = base64Bytes(base64);
   if (bytesBase64(bytes) !== base64) throw new Error('Noncanonical embedded asset');
   return bytes;

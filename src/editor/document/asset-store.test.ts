@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, it } from 'vitest';
-import { AssetStore } from './asset-store';
+import { AssetStore, decodeAsset } from './asset-store';
 import { migrateProject, toStudioProject } from './migrations';
 import { validateProjectV2 } from './project-v2';
 import type { StudioProject } from '../studio/types';
@@ -32,4 +32,11 @@ it('bounds distinct assets while allowing repeated references at the limit', asy
   expect(store.get(repeated)).toEqual(bytes(0));
   await expect(store.add(bytes(10001), 'image/png')).rejects.toThrow(/too many assets/i);
   expect(Object.keys(store.snapshot())).toHaveLength(10001);
+});
+it('decodes assets over 4 MB (the old regex overflowed) and still rejects malformed base64', () => {
+  const pdf = new Uint8Array(6_000_000).fill(7);
+  pdf.set([0x25, 0x50, 0x44, 0x46]);
+  const base64 = Buffer.from(pdf).toString('base64');
+  expect(Buffer.from(decodeAsset(base64)).equals(Buffer.from(pdf))).toBe(true);
+  for (const bad of ['A===', 'AB=C', 'ABC', 'AB==AAAA', 'AA-A', 'AAA']) expect(() => decodeAsset(bad)).toThrow('Invalid embedded asset');
 });
