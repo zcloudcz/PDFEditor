@@ -25,7 +25,8 @@ export function renderPreview(engine, index, scale) {
 }
 
 export class ContinuousPages {
-  constructor(stage, activeWrap, activate, { maxCanvases = 6 } = {}) {
+  // 12 previews (each capped at 1600 px) keep pages rendered when scrolling back and forth.
+  constructor(stage, activeWrap, activate, { maxCanvases = 12 } = {}) {
     this.stage = stage;
     stage.classList.add('continuous-stage');
     this.activeWrap = activeWrap;
@@ -36,7 +37,7 @@ export class ContinuousPages {
     this.list = document.createElement('div');
     this.list.className = 'continuous-pages';
     stage.append(this.list);
-    stage.addEventListener('scroll', () => this.schedule(), { passive: true });
+    stage.addEventListener('scroll', () => { this.lastScroll = performance.now(); this.schedule(); }, { passive: true });
     this.list.addEventListener('click', (event) => {
       const slot = event.target.closest('.continuous-page');
       if (!slot || this.activeWrap.contains(event.target)) return;
@@ -135,6 +136,13 @@ export class ContinuousPages {
     // Render one page per animation frame, keeping interaction responsive.
     const slot = nearby.map(n => n.slot).find(s => !s.contains(this.activeWrap) && !s.querySelector(':scope > canvas'));
     if (!slot) return;
+    // A page render blocks the main thread for tens of ms; wait until scrolling pauses.
+    const wait = this.lastScroll + 120 - performance.now();
+    if (wait > 0) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = setTimeout(() => this.schedule(), wait);
+      return;
+    }
     try {
       const image = renderPreview(this.engine, Number(slot.dataset.pageIndex), this.zoom * (globalThis.devicePixelRatio || 1));
       const canvas = document.createElement('canvas');

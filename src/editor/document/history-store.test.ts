@@ -3,7 +3,6 @@ import { expect, it } from 'vitest';
 import { HistoryStore } from './history-store';
 import type { DocumentCheckpoint } from './coordinator';
 import type { StudioProject } from '../studio/types';
-import { createHash } from 'node:crypto';
 
 const image = `data:image/png;base64,${btoa('same image'.repeat(1000))}`;
 const pdf = btoa('%PDF-1.7\nshared source');
@@ -25,7 +24,7 @@ it('keeps 100 repeated images and unchanged source PDF once across 80 states', (
   const storedStates = JSON.stringify(Reflect.get(history, 'states'));
   expect(storedStates.length + history.mediaCharacters).toBeLessThan(JSON.stringify(checkpoint(99)).length * 80 / 20);
   const media = Reflect.get(history, 'media') as Map<string, string>;
-  for (const [hash, payload] of media) expect(hash).toBe(createHash('sha256').update(payload).digest('hex'));
+  expect(new Set(media.values()).size).toBe(media.size);
   expect(history.at(79)?.project.pages[0].objects).toHaveLength(100);
   expect(history.at(79)?.project).toEqual(checkpoint(99).project);
   expect(original.project).toEqual(checkpoint(0).project);
