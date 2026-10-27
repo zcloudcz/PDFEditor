@@ -1,67 +1,55 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Builds the standalone PDF editor and deploys it to GitHub Pages (pdf2.zcloud.cz).
+name: Deploy editor to Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# Allow only one concurrent deployment; do not cancel a running production deploy.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
-
-# Configure these variables under your repo settings.
-# You will likely need to set BASE_URL to be the name of your repo eg 'bentopdf'
 env:
-  SIMPLE_MODE: ${{ vars.SIMPLE_MODE }}
-  BASE_URL: ${{ vars.BASE_URL }}/
-  SITE_URL: ${{ vars.SITE_URL }}
   HUSKY: 0
+  # The editor build copies license/NOTICE files from this exact engine source revision.
+  PDFIUM_VIEWER_REV: 051abe5b72a9219e6b86e1f890fa7d4aca0e8f49
 
 jobs:
-  # Single deploy job since we're just deploying
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - name: Install dependencies
-        run: npm ci
-      - name: Build distribution
+          node-version: "24"
+      - run: npm ci
+      - name: Fetch engine source (license files only needed)
         run: |
-          # export SIMPLE_MODE=${{ vars.SIMPLE_MODE }}
-          #  export BASE_URL=${{ vars.BASE_URL }}/ 
-          npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+          git init -q bentopdf-pdfium-viewer
+          cd bentopdf-pdfium-viewer
+          git remote add origin https://github.com/alam00000/bentopdf-pdfium-viewer.git
+          git fetch -q --depth 1 origin "$PDFIUM_VIEWER_REV"
+          git checkout -q FETCH_HEAD
+          git submodule update --init --depth 1 packages/pdfium/pdfium-src
+      - run: npm run build:editor
+      - name: Serve editor at site root
+        run: |
+          cp dist-editor/editor.html dist-editor/index.html
+          echo "pdf2.zcloud.cz" > dist-editor/CNAME
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: dist
-          name: github-pages-deployment
+          path: dist-editor
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-deployment
