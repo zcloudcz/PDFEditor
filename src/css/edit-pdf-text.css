@@ -2361,3 +2361,40 @@
     z-index: 55;
   }
 }
+
+/* Continuous document: one retained native editor, bounded off-page previews. */
+#text-editor-app #stage.continuous-stage { display: block; }
+#text-editor-app .continuous-pages {
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  flex: 0 0 auto;
+  min-width: 100%;
+}
+#text-editor-app .continuous-pages:empty { display: none; }
+#text-editor-app .continuous-page {
+  position: relative;
+  flex: 0 0 auto;
+  background: white;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, .35);
+  cursor: pointer;
+}
+#text-editor-app .continuous-page:focus-visible { outline: 3px solid var(--ecaccent); }
+#text-editor-app .continuous-page > canvas { display: block; width: 100%; height: 100%; }
+#text-editor-app .continuous-page > #pageWrap { box-shadow: none; }
+#text-editor-app .continuous-page.is-active { cursor: auto; }
+
+#text-editor-app .continuous-page::after {
+  content: attr(data-page-label);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding-top: 4px;
+  text-align: center;
+  color: var(--ecmuted);
+  font-size: 11px;
+  pointer-events: none;
+}

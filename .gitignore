@@ -54,3 +54,9 @@ test
 # Sibling checkouts of the engine/viewer forks
 bentopdf-pdfium-viewer/
 bentopdf-pymupdf-wasm/
+
+# Local execution evidence and state
+.superpowers/
+MEMORY.md
+/dist-editor/
+

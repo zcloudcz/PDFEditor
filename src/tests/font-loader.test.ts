@@ -9,6 +9,11 @@ import {
 } from '../js/utils/font-loader';
 
 describe('font-loader', () => {
+  it('serves the Latin fallback from the application for offline Czech editing', () => {
+    expect(resolveFontUrl('Liberation Sans', {})).toBe(
+      `${import.meta.env.BASE_URL}pdfjs-viewer/standard_fonts/LiberationSans-Regular.ttf`
+    );
+  });
   it('uses the default public font URL when no offline font base URL is configured', () => {
     expect(resolveFontUrl('Noto Sans', {})).toBe(
       'https://rawcdn.githack.com/googlefonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSans/NotoSans-Regular.ttf'
@@ -52,6 +57,12 @@ describe('font-loader', () => {
       expect(results).toEqual([true, true]);
       expect(fetchFont).toHaveBeenCalledTimes(1);
       expect(hasFallbackFonts(fonts, ['eng'])).toBe(true);
+      expect(fetchFont).toHaveBeenCalledWith(
+        expect.stringContaining('/pdfjs-viewer/standard_fonts/LiberationSans-Regular.ttf')
+      );
+      const secondEditor = new Map<string, Uint8Array>();
+      expect(await loadFallbackFonts(secondEditor, ['eng'])).toBe(true);
+      expect(hasFallbackFonts(secondEditor, ['eng'])).toBe(true);
     });
 
     it('reports failure when only a substitute font arrives, then retries', async () => {

@@ -1,0 +1,92 @@
+:root { font-family: 'Segoe UI', sans-serif; color: #223047; background: #e9edf3; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+[hidden], .hidden { display: none !important; }
+:focus-visible { outline: 3px solid #2459c4; outline-offset: 3px; }
+.product-header { height: 64px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; background: white; border-bottom: 1px solid #d6dde7; }
+.product-header strong { font-size: 18px; }
+.product-header span { color: #64748b; font-size: 13px; }
+.product-header a { color: #465f85; margin-left: 16px; }
+.fit-controls { display: flex; gap: 4px; flex-wrap: wrap; }
+#text-editor-app #viewbar .fit-controls button[aria-pressed='true'] { background: #2459c4; color: white; }
+#text-editor-app #viewbar { flex-wrap: wrap; gap: 6px; max-width: calc(100% - 24px); border-radius: 8px; }
+.page-dialog { width: min(440px, calc(100vw - 32px)); border: 1px solid #cdd6e2; border-radius: 10px; color: #223047; padding: 28px; box-shadow: 0 20px 70px #22304740; }
+.page-dialog::backdrop { background: #22304788; }
+.page-dialog h2 { margin: 0 0 24px; font-size: 21px; }
+.page-dialog label { display: block; font-size: 14px; margin: 16px 0 6px; }
+.page-dialog select, .page-dialog input { width: 100%; border: 1px solid #aab9cc; background: white; color: #223047; border-radius: 4px; padding: 9px; }
+.page-dialog fieldset { border: 1px solid #cdd6e2; margin: 20px 0; padding: 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.dialog-actions button { border: 1px solid #aab9cc; border-radius: 4px; padding: 10px 16px; background: white; color: #223047; }
+.dialog-actions #confirm-page { background: #2459c4; border-color: #2459c4; color: white; }
+#page-dialog-error { color: #b42318; font-size: 14px; }
+.welcome { max-width: 1130px; margin: 70px auto 30px; padding: 0 32px; display: grid; grid-template-columns: minmax(0, 650px) 1fr; gap: 64px; align-items: center; }
+#drop-zone { background: white; padding: 48px; min-height: 540px; box-shadow: 0 8px 30px #2230470a; border-top: 4px solid #2459c4; }
+.paper-mark { width: 55px; border: 1px solid #b6c3d6; border-radius: 2px; padding: 8px; color: #2459c4; }
+.paper-mark span { font-size: 12px; font-weight: 700; }
+.paper-mark i { display: block; height: 2px; background: #d6dde7; margin: 5px 0; }
+h1 { font: 44px/1.12 Georgia, serif; letter-spacing: -1.3px; margin: 24px 0; }
+.welcome p { font-size: 15px; line-height: 1.65; max-width: 48ch; }
+.welcome-actions { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+.welcome-actions button { border: 1px solid #b6c3d6; background: white; color: #223047; padding: 12px 18px; border-radius: 5px; font-weight: 600; }
+.welcome-actions .primary { background: #2459c4; color: white; border-color: #2459c4; }
+.welcome-actions button:hover { box-shadow: 0 0 0 2px #2459c433; }
+.welcome-actions button:disabled { opacity: .5; cursor: wait; }
+.welcome .privacy { font-size: 12px; color: #64748b; margin-top: 20px; }
+.welcome-guide h2 { font-size: 19px; font-weight: 600; }
+.welcome-guide ol { padding-left: 22px; }
+.welcome-guide li { font-size: 14px; line-height: 1.7; padding: 8px 0 8px 5px; }
+.welcome-guide p { color: #64748b; font-size: 12px; border-top: 1px solid #cdd6e2; padding-top: 20px; }
+#shell-status { color: #b42318; }
+.product-footer { margin: 28px auto; max-width: 1066px; font-size: 12px; color: #64748b; display: flex; gap: 16px; padding: 0 20px; }
+.product-footer a { color: #465f85; }
+#text-editor-app { --ecbg: #ffffff; --ecpanel: #ffffff; --ecpanel2: #f2f5f9; --ecline: #d3dce8; --ectext: #223047; --ecmuted: #61718a; --ecaccent: #2459c4; --ecstage: #e9edf3; top: 64px; }
+#text-editor-app .btn:hover, #text-editor-app .ecmenu-item:hover { background: #e2eaf6; }
+#text-editor-app .segmented button.on, #text-editor-app #save { color: white; background: #2459c4; border-color: #2459c4; }
+#text-editor-app #toolbar { min-height: 50px; padding: 10px 16px; gap: 10px; }
+#text-editor-app .btn { min-height: 30px; }
+#text-editor-app #pageWrap { box-shadow: 0 3px 18px #22304724; }
+#text-editor-app #inspector { background: white; }
+#text-editor-app #pageLabel { display: inline-block; }
+#text-editor-app #editScope { display: inline-block !important; }
+#text-editor-app .editcaret { display: none; }
+#text-editor-app #tools [data-tool="edit"] { border-radius: 0; }
+#text-editor-app #viewbar { background: white; }
+#text-editor-app #rulerCorner, #text-editor-app .ruler { background: #f2f5f9; }
+#text-editor-app button:focus-visible { outline: 3px solid #2459c4; outline-offset: 2px; }
+@media (max-width: 800px) {
+  .product-header { height: 54px; padding: 0 16px; }
+  .product-header strong { font-size: 15px; }
+  #text-editor-app { top: 54px; }
+  .welcome { margin: 24px auto; padding: 0 16px; grid-template-columns: 1fr; gap: 20px; }
+  #drop-zone { padding: 28px; min-height: auto; }
+  h1 { font-size: 36px; }
+  .welcome-guide { padding: 0 12px; }
+  #text-editor-app #toolbar { padding: 6px; gap: 5px; }
+  #text-editor-app #inspector { max-width: 42vw; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+.editor-language-control { display: flex; align-items: center; gap: 6px; margin-inline-start: auto; min-width: 0; }
+.editor-language-control select { max-width: 155px; min-height: 34px; padding: 5px 8px; background: #fff; color: #243246; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+.product-header { gap: 12px; }
+/* UI direction never changes PDF/SVG coordinate systems or authored content. */
+#stage, .studio-stage, .studio-page-heading, .studio-template-preview { direction: ltr; }
+#pageLabel, #fMarkerStyle { direction: ltr; unicode-bidi: isolate; }
+[dir="rtl"] .studio-library, [dir="rtl"] .studio-properties, [dir="rtl"] #inspector { text-align: start; }
+@media (max-width: 600px) { .editor-language-control select { max-width: 112px; } .product-header > span { display: none; } }
+/* The standalone host uses the native inspector, not the upstream mobile dock. */
+@media (max-width: 768px) {
+  #text-editor-app #toolbar { flex-wrap: wrap; }
+  #text-editor-app #tools, #text-editor-app #toggleInspector,
+  #text-editor-app #find, #text-editor-app #toolbar label[for='file'],
+  #text-editor-app #viewbar { display: flex !important; }
+  #text-editor-app #viewbar { position: static; transform: none; flex: 0 0 auto; width: 100%; margin: 0 auto; }
+  #text-editor-app #viewbar .label { display: inline-block; }
+  #text-editor-app #inspector { max-width: none; width: 100%; max-height: 30vh; padding: 12px; overflow: auto; border-radius: 0; box-shadow: none; }
+  #text-editor-app #inspector > :not([hidden]) { display: block; }
+  #text-editor-app #inspector > .row:not([hidden]) { display: flex; }
+  #text-editor-app #inspector.collapsed { display: none; }
+  #text-editor-app #inspector[disabled] { opacity: .5; pointer-events: none; }
+}

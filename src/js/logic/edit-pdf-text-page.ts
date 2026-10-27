@@ -275,7 +275,7 @@ function formatPdfDate(raw: string): string {
 }
 
 interface EditorAppModule {
-  openFile: (file: File) => Promise<void>;
+  openFile: (file: File) => Promise<boolean>;
   engineReady: Promise<boolean>;
   setZoom: (z: number) => void;
   getZoom: () => number;

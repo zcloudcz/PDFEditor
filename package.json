@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/generate-blog.mjs && node scripts/generate-static-tool-links.mjs && tsc && vite build && node scripts/enhance-seo-pages.mjs && NODE_OPTIONS='--max-old-space-size=3072' node scripts/generate-i18n-pages.mjs && node scripts/generate-sitemap.mjs && node scripts/generate-security-headers.mjs && node scripts/seo-audit.mjs",
+    "build": "node scripts/generate-blog.mjs && node scripts/generate-static-tool-links.mjs && tsc && vite build && node scripts/enhance-seo-pages.mjs && node --max-old-space-size=3072 scripts/generate-i18n-pages.mjs && node scripts/generate-sitemap.mjs && node scripts/generate-security-headers.mjs && node scripts/seo-audit.mjs",
+    "qa:unit": "vitest run --maxWorkers=2",
+    "qa:types": "tsc --noEmit",
     "seo-audit": "node scripts/seo-audit.mjs",
     "build:with-docs": "npm run build && npm run docs:build && node scripts/include-docs-in-dist.js",
     "build:gzip": "COMPRESSION_MODE=g npm run build",
@@ -39,7 +41,10 @@
     "security:codeql:quick": "codeql database analyze ./codeql-db --format=csv --output=codeql-results.csv --threads=0 codeql/javascript-queries:codeql-suites/javascript-security-extended.qls",
     "security:patterns": "node scripts/security-patterns-check.mjs",
     "security:audit": "npm audit --audit-level=high && npm run lint:security && npm run security:patterns",
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev:editor": "vite --config vite.editor.config.ts",
+    "build:editor": "tsc --noEmit && vite build --config vite.editor.config.ts",
+    "preview:editor": "vite preview --config vite.editor.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -145,7 +150,9 @@
     "vite-plugin-static-copy": "^3.2.0",
     "wasm-vips": "^0.0.17",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zgapdfsigner": "^2.7.5"
+    "zgapdfsigner": "^2.7.5",
+    "bidi-js": "1.0.3",
+    "regenerator-runtime": "0.13.11"
   },
   "lint-staged": {
     "*.{js,ts,mjs,cjs}": [

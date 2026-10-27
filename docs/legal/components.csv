@@ -1,0 +1,18 @@
+component,revision,license,evidence,distribution_status
+BentoPDF,9aae81e73cdf286b5663b8d95fcef0c0a3f141a9,AGPL-3.0,LICENSE,source available; retain notices
+BentoPDF native/viewer fork,051abe5b72a9219e6b86e1f890fa7d4aca0e8f49,AGPL-3.0 and MIT,bentopdf-pdfium-viewer/LICENSE and NOTICE,source checked out; native rebuild pending
+PDFium source,fce2b000cc7a9e2cabc92db41cd57ca03233f07d,BSD-style and Apache-2.0 and third-party,bentopdf-pdfium-viewer/packages/pdfium/pdfium-src/LICENSE and NOTICE,linked dependency notices still being inventoried
+HarfBuzz,11.0,Old MIT,bentopdf-pdfium-viewer/licenses/LICENSE.harfbuzz,retain notice
+Liberation Sans,bundled upstream v2.8.10,SIL OFL-1.1,public/pdfjs-viewer/standard_fonts/LICENSE_LIBERATION,local CZ/EN fallback
+PDF.js,locked package version,Apache-2.0 plus resource notices,node_modules/pdfjs-dist/LICENSE,retain cmaps fonts and codec notices for copied assets
+pdf-lib,locked package version,MIT,node_modules/pdf-lib/LICENSE.md,retain notice
+Tesseract.js,7.0.0 locked package version,Apache-2.0,node_modules/tesseract.js/LICENSE.md,local worker integrated; root notices copied; native/transitive corresponding-source audit remains open
+Tesseract.js-core,7.0.0 locked package version,Apache-2.0 plus linked dependencies,node_modules/tesseract.js-core/LICENSE,local LSTM core variants integrated; native/transitive corresponding-source audit remains open
+Tesseract ces/eng models,87416418657359cb625c412a48b6e1d6d41c29bd,Apache-2.0,docs/legal/ocr/README.md and tessdata-fast-LICENSE,pinned local files hashes and sizes recorded; four synthetic benchmarks only
+PyMuPDF WASM,0.11.16,upstream declares AGPL,src/js/utils/wasm-provider.ts,exclude from first editor distribution
+Ghostscript WASM,0.1.1,upstream declares AGPL,src/js/utils/wasm-provider.ts,exclude from first editor distribution
+CoherentPDF,2.5.5,upstream declares AGPL,src/js/utils/wasm-provider.ts,exclude from first editor distribution
+qpdf WASM,bundled upstream v2.8.10,unverified binary provenance,public/qpdf.wasm,exclude from first editor distribution
+LibreOffice WASM,bundled upstream v2.8.10,unverified binary provenance,public/libreoffice-wasm,exclude from first editor distribution
+EmbedPDF font packs,1.0.0,SIL OFL,source packages/fonts/*/LICENSE,remote viewer fonts require local asset inventory
+English spell dictionary,bundled upstream v2.8.10,unverified,src/js/editcore/app.js dict/en.txt.gz,exclude until provenance verified

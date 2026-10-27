@@ -1,0 +1,31 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { prepareOcrReconstruction } from './ocr-reconstruction';
+import type { StudioProject } from './types';
+import type { OcrReconstructionProposal } from '../pdf/ocr-reconstruction';
+const project = (): StudioProject => ({ version: 1, name: 'Scan', sourcePdf: 'JVBERi0x', pages: [{ id: 'scan', name: 'Scan', width: 300, height: 400, sourcePageIndex: 0, background: '#ffffff', objects: [] }] });
+const proposal = (): OcrReconstructionProposal => ({ revision: 3, pages: [{ pageIndex: 0, width: 300, height: 400, lines: [{ text: 'Česká oprava', x: 20, y: 30, width: 180, height: 24, confidence: 91 }] }] });
+beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(readFileSync('public/pdfjs-viewer/standard_fonts/LiberationSans-Regular.ttf'))))));
+afterEach(() => vi.unstubAllGlobals());
+it('adds editable corrected text without losing the scan, old objects or stable page identities', async () => {
+  const original = project(), before = structuredClone(original);
+  const next = await prepareOcrReconstruction(original, proposal());
+  expect(original).toEqual(before);
+  expect(next.sourcePdf).toBe(original.sourcePdf);
+  expect(next.pages[0].id).toBe('scan');
+  expect(next.pages[0].objects[0]).toMatchObject({ kind: 'rect', locked: true, fill: '#ffffff' });
+  expect(next.pages[0].objects[1]).toMatchObject({ kind: 'text', text: 'Česká oprava', locked: false });
+  expect(next.pages[0].objects[0].id).not.toBe(next.pages[0].objects[1].id);
+});
+it('rejects stale geometry, duplicate pages, unsafe glyphs and cancellation before any live mutation', async () => {
+  const original = project(), before = structuredClone(original);
+  const bad = proposal(); bad.pages[0].lines[0].x = -100;
+  await expect(prepareOcrReconstruction(original, bad)).rejects.toThrow();
+  const duplicate = proposal(); duplicate.pages.push(duplicate.pages[0]);
+  await expect(prepareOcrReconstruction(original, duplicate)).rejects.toThrow();
+  const missing = proposal(); missing.pages[0].lines[0].text = '😀';
+  await expect(prepareOcrReconstruction(original, missing)).rejects.toThrow();
+  const abort = new AbortController(); abort.abort();
+  await expect(prepareOcrReconstruction(original, proposal(), abort.signal)).rejects.toThrow();
+  expect(original).toEqual(before);
+});

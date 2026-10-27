@@ -1,0 +1,49 @@
+#text-editor-app #toolbar:has(#native-text-toolbar) {
+  /* Upstream later sets nowrap; the standalone contextual row must wrap. */
+  flex-wrap: wrap;
+  overflow: visible;
+}
+#text-editor-app #native-text-toolbar {
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ecline);
+  flex-wrap: wrap;
+}
+#native-text-toolbar .native-text-control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+#text-editor-app #native-text-toolbar input,
+#text-editor-app #native-text-toolbar select {
+  min-height: 32px;
+  border: 1px solid var(--ecline);
+  border-radius: 5px;
+  background: var(--ecbg);
+  color: var(--ectext);
+  padding: 3px 6px;
+}
+#text-editor-app #native-text-toolbar #fFamily { width: 160px; max-width: 35vw; }
+#text-editor-app #native-text-toolbar #fSize,
+#text-editor-app #native-text-toolbar #fLine { width: 66px; }
+#text-editor-app #native-text-toolbar #fColor { width: 36px; padding: 3px; }
+#text-editor-app #native-text-toolbar #fToggles { display: flex; gap: 3px; margin: 0; }
+#text-editor-app #native-text-toolbar #fToggles button,
+#text-editor-app #native-text-toolbar #fAlign button { min-width: 32px; min-height: 32px; }
+#text-editor-app #native-text-toolbar .native-line-spacing {
+  display: flex; align-items: center; gap: 6px; margin: 0;
+}
+#text-editor-app #native-text-toolbar[aria-disabled='true'] { opacity: .5; }
+body[data-editor-mode='studio'] #native-text-toolbar { display: none !important; }
+@media (max-width: 600px) {
+  #text-editor-app #native-text-toolbar { gap: 6px; max-height: 132px; overflow-y: auto; }
+  #text-editor-app #native-text-toolbar .native-line-spacing > span { display: none; }
+}

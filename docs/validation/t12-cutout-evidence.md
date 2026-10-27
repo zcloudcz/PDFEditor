@@ -1,0 +1,11 @@
+# T12 assisted image cutout evidence
+
+Status: local implementation and automated checks complete; browser/device matrix pending.
+
+The cutout uses project-owned deterministic, edge-connected RGB colour flood fill from a user-selected background point. Tolerance is a fraction of the maximum RGB Euclidean distance. Keep/remove brush strokes use normalized coordinates on the EXIF-oriented original. This is an assisted colour selection, not a learned subject detector. There are no model weights, new packages, network calls or downloads for this feature. The code is in `src/editor/studio/background-segmentation.ts`, `image-masks.ts`, `image-effects.ts` and `mask-editor.ts`, under the repository's AGPL-3.0-only licence.
+
+The original image bytes remain in `src`. A portable project stores only one procedural `imageCutout` descriptor per image object. V2 asset deduplication continues to cover the original image. Rendering samples at no more than 1024 pixels on the long side and 1,048,576 pixels in total, then applies its mask to the full-resolution original before crop and filters. Brush input is capped at 128 strokes, 512 points per stroke, 4096 total points and 16 million visited pixels. Cancellation yields during flood fill and brush rasterization. Keep strokes multiply with original alpha, so they do not make originally transparent pixels opaque.
+
+On 2026-10-26, `npx tsc --noEmit` passed. Focused Vitest checks covered segmentation, malformed bounds, cancellation, original alpha, replacement/reset, SVG/PDF export and unchanged source. The one-megapixel synthetic white-background/red-foreground correctness case took **648 ms** in Vitest on this Windows host; this includes event-loop yields and is not a browser or device benchmark. Vitest was run outside the sandbox after the documented temporary-file rename EPERM.
+
+Limits: background and subject with similar colours may merge; fine hair and semitransparent edges need manual brush correction. One-pixel feathering at the analysis resolution is not a high-quality hair matting algorithm. Browser results on low-memory, touch and desktop devices, and visual comparison of preview with exported pixels, still need recording before declaring the T12 cutout gate complete.

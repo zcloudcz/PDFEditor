@@ -19,7 +19,9 @@ function resolveWasmUrl() {
   }
   const resolve = import.meta.resolve;
   if (typeof resolve !== 'function') return null;
-  return new URL(resolve('bentopdf-pdfium/editcore.wasm')).pathname;
+  // Emscripten accepts file URLs. Keep the scheme so Windows drive letters
+  // and escaped characters are decoded by Node instead of treated as a path.
+  return new URL(resolve('bentopdf-pdfium/editcore.wasm')).href;
 }
 
 const wasmUrl = resolveWasmUrl();

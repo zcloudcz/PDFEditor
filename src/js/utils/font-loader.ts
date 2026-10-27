@@ -31,6 +31,9 @@ export function resolveFontUrl(
   fontFamily: string,
   env: OcrFontEnv = getDefaultFontEnv()
 ): string {
+  if (fontFamily === 'Liberation Sans') {
+    return `${import.meta.env.BASE_URL}pdfjs-viewer/standard_fonts/LiberationSans-Regular.ttf`;
+  }
   const fontBaseUrl = normalizeFontBaseUrl(env.VITE_OCR_FONT_BASE_URL);
 
   if (fontBaseUrl) {
@@ -95,7 +98,7 @@ async function saveFontToDB(
 }
 
 export async function getFontForLanguage(lang: string): Promise<ArrayBuffer> {
-  const fontFamily = languageToFontFamily[lang] || 'Noto Sans';
+  const fontFamily = fallbackFontFamily(lang);
 
   if (fontCache.has(fontFamily)) {
     return fontCache.get(fontFamily)!;
@@ -127,7 +130,7 @@ export async function getFontForLanguage(lang: string): Promise<ArrayBuffer> {
       error
     );
 
-    if (fontFamily !== 'Noto Sans') {
+    if (fontFamily !== fallbackFontFamily('eng') && fontFamily !== 'Noto Sans') {
       return await getFontForLanguage('eng');
     }
 
@@ -135,10 +138,12 @@ export async function getFontForLanguage(lang: string): Promise<ArrayBuffer> {
   }
 }
 
-const fallbackFontLoads = new Map<string, Promise<boolean>>();
+const fallbackFontLoads = new Map<string, Promise<Uint8Array | null>>();
 
 const fallbackFontFamily = (lang: string): string =>
-  languageToFontFamily[lang] || 'Noto Sans';
+  lang === 'eng' || lang === 'ces'
+    ? 'Liberation Sans'
+    : languageToFontFamily[lang] || 'Noto Sans';
 
 export function fallbackFontLanguages(text: string): Set<string> {
   const langs = new Set<string>();
@@ -169,17 +174,20 @@ export async function loadFallbackFonts(
             if (!fontCache.has(family)) {
               throw new Error('Only a substitute font was available');
             }
-            into.set(family, new Uint8Array(buffer));
-            return true;
+            return new Uint8Array(buffer);
           })
-          .catch((error: unknown) => {
+          .catch((error: unknown): null => {
             fallbackFontLoads.delete(family);
             console.warn(`Fallback font unavailable for ${family}`, error);
-            return false;
+            return null;
           });
         fallbackFontLoads.set(family, load);
       }
-      return load;
+      return load.then((bytes) => {
+        if (!bytes) return false;
+        into.set(family, bytes);
+        return true;
+      });
     })
   );
   return results.every(Boolean);

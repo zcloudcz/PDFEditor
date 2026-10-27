@@ -1,0 +1,109 @@
+{
+  "generatedAt": "2026-10-26T16:37:49.576Z",
+  "engine": "tesseract.js 7.0.0 / core 7.0.0",
+  "modelsRevision": "87416418657359cb625c412a48b6e1d6d41c29bd",
+  "normalization": "NFC, lowercase, collapse whitespace, preserve punctuation; Levenshtein CER/WER",
+  "protocol": "Rendered synthetic raster; production filter/geometry; PSM3,216DPI,rotateAuto=false; original and processed independently recognized",
+  "memory": {
+    "peakProcessRssBytes": 208830464,
+    "samplingIntervalMs": 10,
+    "scope": "Entire Node process including OCR threads; not browser peak or maximum-page bound",
+    "rasterBudget": "12M pixels per raster; source+prepared 96MB RGBA; filtering two temporary RGBA buffers adds up to 96MB; PNG/engine allocations additional. Pages serial; cancellation yields every64rows."
+  },
+  "limitations": [
+    "Synthetic single-column fixtures only; no accuracy guarantee for tables, real camera scans, faded/blurred pages.",
+    "Manual orientation/deskew; no automatic angle detection.",
+    "No source PDF replacement; preprocessing only changes recognition input.",
+    "Node evidence does not prove browser worker loading or browser peak memory."
+  ],
+  "results": [
+    {
+      "language": "ces",
+      "fixture": "skew-noise",
+      "prepared": false,
+      "width": 1623,
+      "height": 564,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 81,
+      "elapsedMs": 493
+    },
+    {
+      "language": "ces",
+      "fixture": "skew-noise",
+      "prepared": true,
+      "width": 1651,
+      "height": 649,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 94,
+      "elapsedMs": 643
+    },
+    {
+      "language": "ces",
+      "fixture": "quarter-turn",
+      "prepared": false,
+      "width": 480,
+      "height": 1600,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 94,
+      "elapsedMs": 465
+    },
+    {
+      "language": "ces",
+      "fixture": "quarter-turn",
+      "prepared": true,
+      "width": 1600,
+      "height": 480,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 93,
+      "elapsedMs": 637
+    },
+    {
+      "language": "eng",
+      "fixture": "skew-noise",
+      "prepared": false,
+      "width": 1623,
+      "height": 564,
+      "cer": 0.011111111111111112,
+      "wer": 0.0625,
+      "confidence": 94,
+      "elapsedMs": 543
+    },
+    {
+      "language": "eng",
+      "fixture": "skew-noise",
+      "prepared": true,
+      "width": 1651,
+      "height": 649,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 95,
+      "elapsedMs": 739
+    },
+    {
+      "language": "eng",
+      "fixture": "quarter-turn",
+      "prepared": false,
+      "width": 480,
+      "height": 1600,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 95,
+      "elapsedMs": 548
+    },
+    {
+      "language": "eng",
+      "fixture": "quarter-turn",
+      "prepared": true,
+      "width": 1600,
+      "height": 480,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 95,
+      "elapsedMs": 704
+    }
+  ]
+}

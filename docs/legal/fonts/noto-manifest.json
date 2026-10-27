@@ -1,0 +1,47 @@
+[
+  {
+    "file": "NotoSansArabic-Bold.ttf",
+    "bytes": 248468,
+    "sha256": "ed2711b387750ae991b6a980b8dd16fdd65e6702b97e9f52adf3a8edf09ef4df",
+    "repository": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "license": "SIL OFL-1.1",
+    "status": "allowlisted; restricted verified text profiles documented in README"
+  },
+  {
+    "file": "NotoSansArabic-Regular.ttf",
+    "bytes": 240456,
+    "sha256": "ceea25b464a656dc3b26849bab9356740401af62aedf1bfa8b7f0d9b75925b1b",
+    "repository": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "license": "SIL OFL-1.1",
+    "status": "allowlisted; restricted verified text profiles documented in README"
+  },
+  {
+    "file": "NotoSansCJKjp-Regular.otf",
+    "bytes": 16467736,
+    "sha256": "68a3fc98800b2a27b371f2fb79991daf3633bd89309d4ffaa6946fd587f375b5",
+    "repository": "https://github.com/notofonts/noto-cjk",
+    "revision": "f8d157532fbfaeda587e826d4cd5b21a49186f7c",
+    "license": "SIL OFL-1.1",
+    "status": "allowlisted; restricted verified text profiles documented in README"
+  },
+  {
+    "file": "NotoSansDevanagari-Bold.ttf",
+    "bytes": 225748,
+    "sha256": "19cc835a064c4af63e3c20feb54f5bf51dc25ffa52c0f493a23904572af8b26e",
+    "repository": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "license": "SIL OFL-1.1",
+    "status": "allowlisted; shaping preview available; semantic export gated"
+  },
+  {
+    "file": "NotoSansDevanagari-Regular.ttf",
+    "bytes": 219212,
+    "sha256": "385e78e6359a9d88a0f243d53b1209d7548361ba2194e2b9ec779bcaa7e8949d",
+    "repository": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "license": "SIL OFL-1.1",
+    "status": "allowlisted; shaping preview available; semantic export gated"
+  }
+]

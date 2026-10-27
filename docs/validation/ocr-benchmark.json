@@ -1,0 +1,74 @@
+{
+  "generatedAt": "2026-10-26T13:50:50.471Z",
+  "engine": "tesseract.js 7.0.0 / tesseract.js-core 7.0.0",
+  "modelsRevision": "87416418657359cb625c412a48b6e1d6d41c29bd",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v24.13.0",
+    "cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S          ",
+    "logicalCpus": 32,
+    "totalRamBytes": 51298828288
+  },
+  "normalization": "Unicode NFC, lowercase, collapse whitespace, keep punctuation; Levenshtein characters/words divided by reference length",
+  "memory": {
+    "peakProcessRssBytes": 161931264,
+    "samplingIntervalMs": 10,
+    "scope": "Entire Node process including OCR worker threads; not browser peak heap or a per-page guarantee"
+  },
+  "limitations": [
+    "Four synthetic single-column, upright fixtures. No real scan/camera/document corpus.",
+    "Noise is deterministic 1px gray dust; no blur/skew/rotation/degraded-paper benchmark.",
+    "Node engine benchmark proves pinned local engine/models, not browser worker loading, browser offline cache, or production accuracy."
+  ],
+  "results": [
+    {
+      "language": "ces",
+      "fixture": "synthetic-clean",
+      "width": 1600,
+      "height": 480,
+      "characters": 119,
+      "words": 18,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 94,
+      "elapsedMs": 568
+    },
+    {
+      "language": "ces",
+      "fixture": "synthetic-light-noise",
+      "width": 1600,
+      "height": 480,
+      "characters": 119,
+      "words": 18,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 94,
+      "elapsedMs": 324
+    },
+    {
+      "language": "eng",
+      "fixture": "synthetic-clean",
+      "width": 1600,
+      "height": 480,
+      "characters": 139,
+      "words": 24,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 95,
+      "elapsedMs": 369
+    },
+    {
+      "language": "eng",
+      "fixture": "synthetic-light-noise",
+      "width": 1600,
+      "height": 480,
+      "characters": 139,
+      "words": 24,
+      "cer": 0,
+      "wer": 0,
+      "confidence": 95,
+      "elapsedMs": 341
+    }
+  ]
+}

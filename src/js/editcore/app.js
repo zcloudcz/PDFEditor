@@ -1,3 +1,5 @@
+import { t as uiText } from '../../editor/i18n';
+import { clearNativeContextSelection, isNativeContextSelectionClear } from '../../editor/context-toolbar';
 window.addEventListener('error', (e) => {
   if (!document.title.startsWith('E2E') && !document.title.startsWith('REPRO'))
     document.title =
@@ -14,6 +16,7 @@ window.addEventListener('unhandledrejection', (e) => {
     ((e.reason && (e.reason.stack || e.reason.message)) || e.reason);
 });
 import { PdfEngine, OBJ } from './core.js';
+import { ContinuousPages, clientToPage } from './continuous-pages.js';
 import { applyTagSurgery } from './tagsurgery.js';
 import { pageHasPatternFill, protectPatternArtwork } from './shadingsurgery.js';
 import {
@@ -26,6 +29,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   engine: null,
   docEpoch: 0,
+  documentRevision: 0,
   textSel: null,
   zoom: 1,
   tool: 'edit',
@@ -42,6 +46,20 @@ const state = {
   undo: [],
   redo: [],
 };
+// Content identity is independent of undo depth, dirty state and navigation.
+function getDocumentRevision() { return state.documentRevision; }
+const getNativeRevision = getDocumentRevision;
+function documentChanged() {
+  state.snapshotCache = null;
+  state.documentRevision++;
+  window.dispatchEvent(new CustomEvent('editor:document-changed', {
+    detail: { revision: state.documentRevision },
+  }));
+}
+function hasPendingEdits() {
+  return !!(state.editing && !state.editing.pristine);
+}
+
 const MAX_UNDO = 20;
 const MAX_UNDO_BYTES = 256 << 20;
 const INCREMENTAL_SNAPSHOT_LIMIT = 12 << 20;
@@ -103,6 +121,9 @@ function toast(msg) {
 }
 
 const P = () => state.engine;
+let nativeSanitizationEpoch = 0;
+const nativeDocumentCleanups = new Set();
+let resetNativePointerState = () => {};
 const paraRectView = (box) => ({
   x: box.x * state.zoom,
   y: (P().pageHeight - box.top) * state.zoom,
@@ -113,10 +134,7 @@ const paraRectView = (box) => ({
 const rotRad = (para) => ((para?.rotation || 0) * Math.PI) / 180;
 const toPage = (e) => {
   const rect = $('page').getBoundingClientRect();
-  return {
-    px: (e.clientX - rect.left) / state.zoom,
-    py: P().pageHeight - (e.clientY - rect.top) / state.zoom,
-  };
+  return clientToPage(e.clientX, e.clientY, rect, state.zoom, P().pageHeight);
 };
 
 const textToPage = (para, x, y) => {
@@ -799,6 +817,7 @@ const engineReady = new Promise((resolve) => {
       if (u) {
         replaceParagraph(target.id, u);
         state.dirty = true;
+        documentChanged();
         renderPage();
       }
     }
@@ -3007,7 +3026,38 @@ async function runE2E() {
   document.title = ok ? 'E2E-GREEN' : 'E2E-FAIL';
 }
 
+let continuousPages = null;
+function getPageSurface() {
+  const engine = P();
+  if (!engine?.doc) return null;
+  return { container: $('pageWrap'), pageIndex: engine.pageIndex,
+    width: engine.pageWidth, height: engine.pageHeight, zoom: state.zoom };
+}
+function releaseSelection() {
+  const draft = state.editing;
+  try {
+    if (endEdit(true) === false) throw new Error(uiText('Edit failed'));
+  } catch (error) {
+    if (draft) {
+      state.editing = draft;
+      if (draft.el && !draft.el.isConnected) $('overlay').appendChild(draft.el);
+    }
+    throw error;
+  }
+  selectObject(null);
+}
+function selectStudioPage(index) {
+  if (!P()?.doc || !Number.isInteger(index) || index === P().pageIndex) return;
+  goToPage(index);
+}
+function syncContinuousPages() {
+  if (!P()?.doc) return;
+  continuousPages ||= new ContinuousPages($('stage'), $('pageWrap'), goToPage);
+  continuousPages.sync(P(), state.zoom, state.docEpoch);
+}
+
 function renderPage() {
+  syncContinuousPages();
   const eng = P();
   let hide =
     state.editing?.para && !state.editing.pristine
@@ -3034,6 +3084,7 @@ function renderPage() {
   if (overlay.style.height !== cssH) overlay.style.height = cssH;
   drawOverlay();
   drawRulers();
+  window.dispatchEvent(new CustomEvent('editor:page-rendered', { detail: getPageSurface() }));
 }
 
 let scanningPages = false;
@@ -3065,12 +3116,13 @@ function refreshPageExtras() {
   if (state.patternPageFor !== P().pageIndex) {
     state.patternPageFor = P().pageIndex;
     state.patternPage = false;
+    const engine = P(), epoch = state.docEpoch;
     const want = P().pageIndex,
       bytes = P()._originalBytes;
     if (bytes) {
       pageHasPatternFill(bytes, want)
         .then((v) => {
-          if (state.patternPageFor === want) state.patternPage = v;
+          if (P() === engine && state.docEpoch === epoch && state.patternPageFor === want) state.patternPage = v;
         })
         .catch(() => {});
     }
@@ -3232,7 +3284,7 @@ function drawOverlay() {
       }
       const rh = document.createElement('div');
       rh.className = 'obj-handle rot-handle';
-      rh.title = 'Drag to rotate';
+      rh.title = uiText('Drag to rotate');
       rh.style.left = w / 2 - 5 + 'px';
       rh.style.top = '-24px';
       chrome.appendChild(rh);
@@ -3314,7 +3366,7 @@ function drawOverlay() {
     }
     const rh = document.createElement('div');
     rh.className = 'obj-handle rot-handle';
-    rh.title = 'Drag to rotate';
+    rh.title = uiText('Drag to rotate');
     rh.style.left = r.x + r.w / 2 - 5 + 'px';
     rh.style.top = r.y - 24 + 'px';
     ov.appendChild(rh);
@@ -3352,7 +3404,7 @@ function drawOverlay() {
     }
     const rh = document.createElement('div');
     rh.className = 'obj-handle rot-handle';
-    rh.title = 'Drag to rotate';
+    rh.title = uiText('Drag to rotate');
     rh.style.left = pl.w / 2 - 5 + 'px';
     rh.style.top = '-24px';
     chrome.appendChild(rh);
@@ -3492,6 +3544,7 @@ function restore(from, to) {
     refreshModel();
     state.selection = null;
     state.dirty = true;
+    documentChanged();
     renderPage();
     updateChrome();
     return;
@@ -3502,6 +3555,7 @@ function restore(from, to) {
   endEdit(false);
   try {
     P().reopen(snap.bytes, snap.page);
+    state.docInfo = P().documentInfo();
     state.docEpoch++;
   } catch (err) {
     from.push(snap);
@@ -3513,6 +3567,7 @@ function restore(from, to) {
   refreshModel();
   state.selection = null;
   state.dirty = true;
+  documentChanged();
   renderPage();
   updateChrome();
 }
@@ -3520,6 +3575,7 @@ function restore(from, to) {
 const docFonts = new Map();
 const docFontsReady = new Map();
 const docFontsNull = new Set();
+const docFontFaces = new Set();
 let docFontSeq = 0;
 let inPreviewPass = false;
 
@@ -3544,6 +3600,7 @@ function isLoadableSfnt(bytes) {
 }
 
 async function ensureRunFont(para, runIndex, run) {
+  const engine = P(), epoch = state.docEpoch;
   const key = docFontKey(run);
   const hit = docFonts.get(key);
   if (hit) return hit.promise;
@@ -3552,7 +3609,9 @@ async function ensureRunFont(para, runIndex, run) {
       const cssFamily = 'ecdoc' + docFontSeq++;
       const face = new FontFace(cssFamily, bytes.buffer);
       await face.load();
+      if (P() !== engine || state.docEpoch !== epoch) return null;
       document.fonts.add(face);
+      docFontFaces.add(face);
       return cssFamily;
     };
     try {
@@ -3568,6 +3627,7 @@ async function ensureRunFont(para, runIndex, run) {
   })();
   docFonts.set(key, { promise });
   promise.then((fam) => {
+    if (P() !== engine || state.docEpoch !== epoch) return;
     if (fam) {
       docFontsReady.set(key, fam);
       lockedEpoch++;
@@ -3710,6 +3770,7 @@ function placeCaret(ed, clientX, clientY) {
 let fontPrewarmTimer = 0;
 function prewarmDocFonts() {
   clearTimeout(fontPrewarmTimer);
+  const epoch = state.docEpoch;
   const queue = [];
   const seen = new Set();
   for (const para of state.paragraphs) {
@@ -3722,6 +3783,7 @@ function prewarmDocFonts() {
     });
   }
   const step = () => {
+    if (state.docEpoch !== epoch) { queue.length = 0; return; }
     const item = queue.shift();
     if (!item) return;
     if (P()?.doc) ensureRunFont(item[0], item[1], item[2]).catch(() => {});
@@ -3732,8 +3794,10 @@ function prewarmDocFonts() {
 
 function unpristine() {
   const es = state.editing;
-  if (!es?.pristine) return;
+  if (!es) return;
+  if (!es.pristine) { documentChanged(); return; }
   es.pristine = false;
+  documentChanged();
   es.el.classList.remove('pristine');
   renderPage();
 }
@@ -4939,7 +5003,9 @@ function attachParaLongPress(div, para) {
         div.removeEventListener('touchmove', drive);
         div.removeEventListener('touchend', finish);
         div.removeEventListener('touchcancel', finish);
+        nativeDocumentCleanups.delete(cleanup);
       };
+      nativeDocumentCleanups.add(cleanup);
       div.addEventListener('touchmove', slop, { passive: true });
       div.addEventListener('touchmove', drive, { passive: false });
       div.addEventListener('touchend', finish);
@@ -5798,6 +5864,8 @@ function sameStyle(a, b) {
 function endEdit(commit) {
   const e = state.editing;
   if (!e) return;
+  const previousMove = liveBlockMove;
+  try {
   state.editing = null;
   liveBlockMove = null;
   clearTimeout(e.glassSettle);
@@ -5830,6 +5898,7 @@ function endEdit(commit) {
           state.paragraphs.push(created);
           state.selection = { kind: 'para', para: created };
           state.dirty = true;
+          documentChanged();
         }
       } else {
         state.selection = null;
@@ -5849,6 +5918,7 @@ function endEdit(commit) {
           cascadeParagraphGrowth(updated, prevBottomEdit);
           state.selection = { kind: 'para', para: updated };
           state.dirty = true;
+          documentChanged();
           if (!e.para.sharesObjects && !e.para.unwrapsForms) {
             const pvBox = e.preview
               ? {
@@ -5867,6 +5937,7 @@ function endEdit(commit) {
           }
         } else {
           state.undo.pop();
+          throw new Error(uiText('Edit failed'));
         }
       } else if (!e.para.sharesObjects && !e.para.unwrapsForms) {
         const pvBox = e.preview
@@ -5887,6 +5958,14 @@ function endEdit(commit) {
     }
   }
   refreshAfterMutation();
+  } catch (error) {
+    if (commit) {
+      state.editing = e;
+      liveBlockMove = previousMove;
+      if (e.el && !e.el.isConnected) $('overlay').appendChild(e.el);
+    }
+    throw error;
+  }
 }
 
 function updateHoverCursor(e) {
@@ -6445,6 +6524,7 @@ function styleTargetRuns(mutate) {
       replaceParagraph(para.id, updated);
       state.selection = { kind: 'para', para: updated };
       state.dirty = true;
+      documentChanged();
     }
   }
   refreshAfterMutation();
@@ -6489,6 +6569,7 @@ function changeFormat(mutate) {
       if (state.editing.locked) schedulePreview();
     }
     state.dirty = true;
+    documentChanged();
   }
   refreshAfterMutation();
 }
@@ -6747,6 +6828,7 @@ function alignSelection(op) {
     });
   }
   state.dirty = true;
+  documentChanged();
   refreshAfterMutation();
 }
 
@@ -6907,6 +6989,7 @@ function continueListItem(lp) {
     }
     if (lp.num != null) renumberListBelow(created, lp.num + 1);
     state.dirty = true;
+    documentChanged();
     renderPage();
     beginEdit(created);
   }
@@ -6971,6 +7054,7 @@ function setListMarkerStyle(styleKey) {
   if (!group.length) return;
   snapshot();
   let n = 0;
+  let changed = false;
   for (const q of group) {
     const m = (q.runs[0]?.text || '').match(LIST_RX);
     const body = m && (m[2] || m[4] || m[6]);
@@ -6987,9 +7071,12 @@ function setListMarkerStyle(styleKey) {
           : r.text,
     }));
     const u = P().commitParagraph(q.id, runs, q.format);
-    if (u) replaceParagraph(q.id, u);
+    if (u) { replaceParagraph(q.id, u); changed = true; }
   }
-  state.dirty = n > 0;
+  if (changed) {
+    state.dirty = true;
+    documentChanged();
+  }
   refreshAfterMutation();
 }
 
@@ -7032,6 +7119,7 @@ function toggleListPrefix(kind) {
     replaceParagraph(para.id, u);
     state.selection = { kind: 'para', para: u };
     state.dirty = true;
+    documentChanged();
   }
   refreshAfterMutation();
 }
@@ -7040,6 +7128,11 @@ function stagePointHandlers() {
   const canvas = $('page');
   const ov = $('overlay');
   let drag = null;
+  resetNativePointerState = () => { drag = null; };
+  $('pageWrap').addEventListener('pointerdown', (event) => {
+    if (event.target.closest?.('.studio-native-overlay')) return;
+    window.dispatchEvent(new CustomEvent('editor:native-selected'));
+  }, true);
 
   window.addEventListener(
     'mousedown',
@@ -7367,7 +7460,9 @@ function stagePointHandlers() {
         canvas.removeEventListener('touchmove', drive);
         canvas.removeEventListener('touchend', finish);
         canvas.removeEventListener('touchcancel', finish);
+        nativeDocumentCleanups.delete(cleanup);
       };
+      nativeDocumentCleanups.add(cleanup);
       canvas.addEventListener('touchmove', slop, { passive: true });
       canvas.addEventListener('touchmove', drive, { passive: false });
       canvas.addEventListener('touchend', finish);
@@ -7735,6 +7830,7 @@ function stagePointHandlers() {
         P().translateObject(drag.handle, drag.lastDx, drag.lastDy);
         state.selection.bounds = P().objectBounds(drag.handle);
         state.dirty = true;
+        documentChanged();
         refreshAfterMutation();
       } else if (drag.mode === 'resize' && state.selection?.kind === 'object') {
         snapshotEdit('resize object');
@@ -7756,6 +7852,7 @@ function stagePointHandlers() {
         P().scaleObject(drag.handle, sx, sy, ax, ay);
         state.selection.bounds = P().objectBounds(drag.handle);
         state.dirty = true;
+        documentChanged();
         refreshAfterMutation();
       } else if (drag.mode === 'pmove') {
         snapshotEdit('move text');
@@ -7772,6 +7869,7 @@ function stagePointHandlers() {
           replaceParagraph(drag.para.id, moved);
           state.selection = { kind: 'para', para: moved };
           state.dirty = true;
+          documentChanged();
         }
         refreshAfterMutation();
       } else if (drag.mode === 'pwrap') {
@@ -7786,6 +7884,7 @@ function stagePointHandlers() {
           replaceParagraph(drag.para.id, updated);
           state.selection = { kind: 'para', para: updated };
           state.dirty = true;
+          documentChanged();
         }
         refreshAfterMutation();
       } else if (drag.mode === 'mmove' && state.selection?.kind === 'multi') {
@@ -7794,6 +7893,7 @@ function stagePointHandlers() {
         for (const it of state.selection.items)
           moveItem(it, drag.lastDx, drag.lastDy);
         state.dirty = true;
+        documentChanged();
         refreshAfterMutation();
       } else if (drag.mode === 'orot') {
         const deg = (drag.delta * 180) / Math.PI;
@@ -7804,6 +7904,7 @@ function stagePointHandlers() {
           if (state.selection?.kind === 'object')
             state.selection.bounds = P().objectBounds(drag.handle);
           state.dirty = true;
+          documentChanged();
         }
         refreshAfterMutation();
       } else if (drag.mode === 'prot' && drag.para) {
@@ -7814,6 +7915,7 @@ function stagePointHandlers() {
           for (const h of handles) noteMatrix(h);
           P().rotateObjectsAbout(handles, deg, drag.cx, drag.cy);
           state.dirty = true;
+          documentChanged();
           refreshModel();
           state.selection = null;
           renderPage();
@@ -7884,6 +7986,7 @@ function stagePointHandlers() {
         const resized = P().resizeParagraph(id, nw);
         state.editing = null;
         state.dirty = true;
+        documentChanged();
         if (resized) {
           replaceParagraph(id, resized);
           renderPage();
@@ -7909,6 +8012,7 @@ function stagePointHandlers() {
             state.selection = { kind: 'para', para: moved };
           }
           state.dirty = true;
+          documentChanged();
         }
         positionWrap(es.el, es.para);
         renderPage();
@@ -8184,7 +8288,10 @@ function replaceAllScan(needle, replacement) {
     }
   }
   state.find = null;
-  state.dirty = total > 0;
+  if (total > 0) {
+    state.dirty = true;
+    documentChanged();
+  }
   renderPage();
   updateChrome();
   return total;
@@ -8205,6 +8312,7 @@ function replaceCurrent(needle, replacement) {
   replaceParagraph(para.id, u);
   state.find.i -= 1;
   state.dirty = true;
+  documentChanged();
   refreshAfterMutation();
   return 1;
 }
@@ -8235,6 +8343,7 @@ function adjustListLevel(delta) {
   });
   if (u) replaceParagraph(para.id, u);
   state.dirty = true;
+  documentChanged();
   refreshAfterMutation();
 }
 
@@ -8248,6 +8357,7 @@ function applyPathStroke() {
   P().setPathStroke(state.selection.handle, rgba, Math.max(0.1, w));
   scheduleRegen();
   state.dirty = true;
+  documentChanged();
   renderPage();
   drawOverlay();
   updateChrome();
@@ -8501,11 +8611,13 @@ function userDictionaryAdd(w) {
 
 async function spellStart() {
   if (!P()?.doc) return;
+  const engine = P(), epoch = state.docEpoch;
   $('spellbar').hidden = false;
-  $('spellStatus').textContent = 'Loading dictionary…';
+  $('spellStatus').textContent = uiText('Loading dictionary…');
   const ok = await spellDictionary();
+  if (P() !== engine || state.docEpoch !== epoch) return;
   if (!ok) {
-    $('spellStatus').textContent = 'No dictionary.';
+    $('spellStatus').textContent = uiText('No dictionary.');
     return;
   }
   spellRescan();
@@ -8551,8 +8663,8 @@ function spellShow() {
   $('spellWord').textContent = hit ? hit.word : '—';
   $('spellFix').value = hit ? hit.word : '';
   $('spellStatus').textContent = spell.list.length
-    ? `${spell.at + 1} of ${spell.list.length}`
-    : 'No misspellings found.';
+    ? uiText('{current} of {total}', { current: spell.at + 1, total: spell.list.length })
+    : uiText('No misspellings found.');
   spellHighlight(hit);
 }
 function spellNext() {
@@ -8591,7 +8703,11 @@ function spellChange() {
     runs.filter((r) => r.text.length),
     para.format
   );
-  if (u) replaceParagraph(para.id, u);
+  if (u) {
+    replaceParagraph(para.id, u);
+    state.dirty = true;
+    documentChanged();
+  }
   refreshAfterMutation();
   spellRescan();
   spellNext();
@@ -8623,10 +8739,11 @@ function clearTextSelection(drop = true) {
 
 function wireBlockClipboard() {
   document.addEventListener('copy', (e) => {
+    if (document.body.dataset.editorMode === 'studio') return;
     if (!state.editing && state.textSel?.text) {
       e.clipboardData.setData('text/plain', state.textSel.text);
       e.preventDefault();
-      toast('Selected text copied.');
+      toast(uiText('Selected text copied.'));
       return;
     }
     if (state.editing || state.selection?.kind !== 'para') return;
@@ -8644,9 +8761,10 @@ function wireBlockClipboard() {
     e.clipboardData.setData('text/html', runsToHtml(p.runs));
     e.clipboardData.setData('text/plain', p.runs.map((r) => r.text).join(''));
     e.preventDefault();
-    toast('Block copied — paste to duplicate with styles.');
+    toast(uiText('Block copied — paste to duplicate with styles.'));
   });
   document.addEventListener('paste', (e) => {
+    if (document.body.dataset.editorMode === 'studio') return;
     if (state.editing || !P()?.doc) return;
     const raw = e.clipboardData.getData(ECPARA_MIME);
     let data = null;
@@ -8685,8 +8803,9 @@ function wireBlockClipboard() {
       state.paragraphs.push(created);
       state.selection = { kind: 'para', para: created };
       state.dirty = true;
+      documentChanged();
       refreshAfterMutation();
-      toast('Block pasted.');
+      toast(uiText('Block pasted.'));
     } else if (state.undo.length) state.undo.pop();
   });
 }
@@ -8869,7 +8988,7 @@ function drawGuides() {
       (vertical
         ? `left:${coord * state.zoom}px;top:0;width:1px;height:100%;cursor:col-resize;`
         : `top:${(H - coord) * state.zoom}px;left:0;height:1px;width:100%;cursor:row-resize;`);
-    g.title = 'Drag to move, double-click to remove';
+    g.title = uiText('Drag to move, double-click to remove');
     g.addEventListener('dblclick', () => {
       const arr = vertical ? state.guides.v : state.guides.h;
       const i = arr.indexOf(coord);
@@ -8892,7 +9011,9 @@ function drawGuides() {
       const up = () => {
         window.removeEventListener('mousemove', move);
         window.removeEventListener('mouseup', up);
+        nativeDocumentCleanups.delete(up);
       };
+      nativeDocumentCleanups.add(up);
       window.addEventListener('mousemove', move);
       window.addEventListener('mouseup', up);
     });
@@ -8938,9 +9059,13 @@ function drawRulers() {
         };
         let drag0 = null;
         const arr = vertical ? state.guides.v : state.guides.h;
-        const up = (ev) => {
+        const cancel = () => {
           window.removeEventListener('mousemove', move);
           window.removeEventListener('mouseup', up);
+          nativeDocumentCleanups.delete(cancel);
+        };
+        const up = (ev) => {
+          cancel();
           const r = $('page').getBoundingClientRect();
           const val = vertical
             ? (ev.clientX - r.left) / state.zoom
@@ -8950,6 +9075,7 @@ function drawRulers() {
             drawGuides();
           }
         };
+        nativeDocumentCleanups.add(cancel);
         window.addEventListener('mousemove', move);
         window.addEventListener('mouseup', up);
       });
@@ -9052,14 +9178,14 @@ function updateChrome() {
 
   let info = '';
   if (multiSel) {
-    info = state.selection.items.length + ' selected';
+    info = uiText('{count} selected', { count: state.selection.items.length });
   } else if (state.selection?.kind === 'object') {
     const t =
       ['', 'Text', 'Path', 'Image', 'Shading', 'Group'][state.selection.type] ||
       'Object';
     info = t + ' object';
   } else if (state.editing?.newGeom) {
-    info = 'New text box';
+    info = uiText('New text box');
   }
   $('info').textContent = info;
   syncInspector();
@@ -9163,7 +9289,7 @@ let zoomFrame = 0;
 let zoomPending = false;
 function setZoom(z) {
   endEdit(true);
-  state.zoom = Math.min(6, Math.max(0.2, z));
+  state.zoom = Math.min(6, Math.max(0.01, z));
   if (zoomFrame) {
     zoomPending = true;
     return;
@@ -9183,6 +9309,7 @@ function getZoom() {
 }
 function getDocDescription() {
   const eng = P();
+  /** @type {Record<string, string>} */
   const fields = {};
   if (eng?.doc && eng.metaText) {
     for (const k of [
@@ -9206,13 +9333,15 @@ function getDocDescription() {
     pageSize: eng?.doc ? { w: eng.pageWidth, h: eng.pageHeight } : null,
   };
 }
+function getCurrentPageIndex() { return P()?.pageIndex ?? 0; }
 function fitZoom() {
   const stage = $('stage');
   const avail = Math.min(stage.clientWidth - 48, 1400);
   setZoom(avail / P().pageWidth);
 }
-function goToPage(i) {
+function goToPage(i, { scroll = true } = {}) {
   const eng = P();
+  const epoch = state.docEpoch;
   if (i < 0 || i >= eng.pageCount) return;
   endEdit(true);
   eng.generateContent();
@@ -9220,17 +9349,54 @@ function goToPage(i) {
   state.paragraphs = [];
   state.selection = null;
   renderPage();
+  if (scroll) continuousPages?.scrollTo(i);
   updateChrome();
   setTimeout(() => {
-    if (P().pageIndex !== i) return;
+    if (P() !== eng || state.docEpoch !== epoch || P()?.pageIndex !== i) return;
     refreshModel();
     drawOverlay();
     updateChrome();
   }, 0);
 }
 
-async function openFile(file, sourceUrl = null, knownBytes) {
-  endEdit(false);
+let openRequestHandler = null;
+let confirmPlaintextExport = null;
+function setOpenRequestHandler(handler) { openRequestHandler = handler; }
+function setConfirmPlaintextExport(handler) { confirmPlaintextExport = handler; }
+function hasUnsavedChanges() { return state.dirty || !!(state.editing && !state.editing.pristine); }
+function requestOpen(file) { return (openRequestHandler || openFile)(file); }
+
+async function addBlankPage({ width, height }) {
+  if (!P()?.doc) throw new Error(uiText('Nejprve otevřete dokument.'));
+  const engine = P(), epoch = state.docEpoch;
+  if (![width, height].every(n => Number.isFinite(n) && n >= 1 && n <= 14400))
+    throw new Error(uiText('Rozměry stránky musí být mezi 1 a 14400 body.'));
+  const resetsHistory = state.undo.some(s => s.engine) || state.redo.some(s => s.engine) || !!state.editing;
+  if (resetsHistory && !window.confirm(
+    uiText('Vložení stránky zachová obsah a všechny dosavadní úpravy. Starší kroky Zpět pro úpravy textu ale budou odstraněny. Samotné vložení stránky lze vrátit zpět. Pokračovat?')
+  )) return false;
+  endEdit(true);
+  engineStepEnd();
+  const previousPage = P().pageIndex;
+  const bytes = await P().saveSpliced({ incremental: !!state.docInfo?.signatures });
+  if (P() !== engine || state.docEpoch !== epoch) return false;
+  if (!bytes) throw new Error(uiText('Dokument se nepodařilo připravit. Stránka nebyla přidána.'));
+  // Native append rolls back the new page on failure; history changes only on success.
+  const index = P().appendBlankPage(width, height);
+  state.undo = state.undo.filter(s => !s.engine);
+  state.redo = [];
+  pushUndo({ bytes, page: previousPage });
+  syncHistoryPins();
+  state.docInfo = P().documentInfo();
+  state.dirty = true;
+  documentChanged();
+  goToPage(index);
+  document.dispatchEvent(new CustomEvent('editor:pages-changed'));
+  return true;
+}
+
+async function openFile(file, sourceUrl = null, knownBytes, preparedPassword, preparedEncrypted) {
+  const sanitizationEpoch = nativeSanitizationEpoch;
   if (state.extWatch) {
     clearInterval(state.extWatch);
     state.extWatch = null;
@@ -9275,29 +9441,39 @@ async function openFile(file, sourceUrl = null, knownBytes) {
     console.warn('fragile-text protection skipped:', e);
   }
   otrace('engine.open ' + bytes.length);
+  const candidate = await PdfEngine.create();
+  if (sanitizationEpoch !== nativeSanitizationEpoch) { candidate.discardForSanitization(); return false; }
   try {
-    P().open(bytes);
+    candidate.open(bytes, preparedPassword);
   } catch (e) {
     if (e.passwordRequired) {
-      let pw = prompt('This PDF is password-protected.\nEnter the password:');
+      let pw = prompt(uiText('This PDF is password-protected.\nEnter the password:'));
       while (pw != null) {
         try {
-          P().open(bytes, pw);
+          candidate.open(bytes, pw);
           break;
         } catch (e2) {
           if (!e2.passwordRequired) {
             toast(e2.message);
-            return;
+            candidate.close();
+            return false;
           }
-          pw = prompt('Wrong password. Try again:');
+          pw = prompt(uiText('Wrong password. Try again:'));
         }
       }
-      if (pw == null) return;
+      if (pw == null) { candidate.close(); return false; }
     } else {
       toast(e.message);
-      return;
+      candidate.close();
+      return false;
     }
   }
+  endEdit(false);
+  state.snapshotCache = null;
+  P()?.close();
+  state.engine = candidate;
+  state.docEpoch++;
+  state.originalEncrypted = preparedEncrypted ?? !!candidate.security?.encrypted;
   otrace('opened; model');
   if (t3seg) P().setType3Seg(t3seg);
   if (fragilePages) P().setFragilePages(fragilePages);
@@ -9311,9 +9487,10 @@ async function openFile(file, sourceUrl = null, knownBytes) {
     );
   } else if (state.pdfa) {
     toast(
-      'This document declares PDF/A conformance — edits may break conformance.'
+      uiText('This document declares PDF/A conformance — edits may break conformance.')
     );
   }
+  state.pendingAlt = [];
   state.fileName = file.name.replace(/\.pdf$/i, '') + ' (edited).pdf';
   state.docMeta = { name: file.name, size: bytes.length, source: sourceUrl };
   const chip = $('docName');
@@ -9329,33 +9506,150 @@ async function openFile(file, sourceUrl = null, knownBytes) {
   $('pageWrap').hidden = false;
   $('inspector').hidden = false;
   fitZoom();
+  continuousPages?.scrollTo(0);
   updateChrome();
+  documentChanged();
+  return true;
+}
+
+/** Called only under the host's irreversible transaction lock. No rollback. */
+async function discardDocumentForSanitization() {
+  ++nativeSanitizationEpoch;
+  clearNativeContextSelection();
+  for (const cleanup of [...nativeDocumentCleanups]) cleanup();
+  nativeDocumentCleanups.clear(); resetNativePointerState();
+  const epoch = state.docEpoch + 1, revision = state.documentRevision + 1;
+  const engine = P(), pendingWork = [...docFonts.values()].map(value => value.promise);
+  if (state.snapshotCache?.bytes) pendingWork.push(state.snapshotCache.bytes);
+  clearTimeout(fontPrewarmTimer); clearTimeout(regenTimer); clearTimeout(toast._t);
+  cancelAnimationFrame(previewRaf); cancelAnimationFrame(zoomFrame);
+  if (state.extWatch) clearInterval(state.extWatch);
+  if (state.editing?.glassSettle) clearTimeout(state.editing.glassSettle);
+  state.editing?.el?.remove();
+  for (const key of Object.keys(state)) delete state[key];
+  Object.assign(state, { engine: null, docEpoch: epoch, documentRevision: revision,
+    textSel: null, zoom: 1, tool: 'edit', editScope: 'all', notifiedSubs: new Set(),
+    docInfo: null, docMeta: null, pdfa: false, guides: { v: [], h: [] }, paragraphs: [],
+    selection: null, editing: null, dirty: false, fileName: 'document.pdf',
+    undo: [], redo: [], pendingAlt: [], snapshotCache: null });
+  fontPrewarmTimer = regenTimer = previewRaf = zoomFrame = 0;
+  zoomPending = false; engineStepOpen = false; liveBlockMove = objectIndexCache = null;
+  ++lockedEpoch; ++lockedSeq;
+  docFonts.clear(); docFontsReady.clear(); docFontsNull.clear(); _fontADCache.clear();
+  for (const face of docFontFaces) document.fonts.delete(face);
+  docFontFaces.clear();
+  spell.list = []; spell.at = -1; spell.ignored.clear();
+  if (continuousPages) {
+    cancelAnimationFrame(continuousPages.frame); continuousPages.frame = 0;
+    continuousPages.engine = null; continuousPages.doc = 0;
+    $('stage')?.append(continuousPages.activeWrap);
+    continuousPages.list.replaceChildren(); continuousPages.slots = [];
+  }
+  $('overlay')?.replaceChildren();
+  for (const node of document.querySelectorAll('#pageWrap .guide, #pageWrap .smart-guide, #pageWrap .spellhit')) node.remove();
+  for (const id of ['page', 'rulerH', 'rulerV']) {
+    const canvas = $(id); if (canvas) { canvas.width = 0; canvas.height = 0; }
+  }
+  for (const id of ['docName', 'toast', 'spellStatus']) { const node = $(id); if (node) node.textContent = ''; }
+  for (const node of document.querySelectorAll('#text-editor-app input:not([type="button"]), #text-editor-app textarea')) node.value = '';
+  for (const id of ['pageWrap', 'inspector', 'spellbar', 'findbar']) { const node = $(id); if (node) node.hidden = true; }
+  for (const key of ['__censusStart', '__inkVirgin', '__inkNormalized', '__ledger', '__lockGuardLog', '__lockLog', '__glassLog', '__glassBadShot', '__sanctityWhy']) delete window[key];
+  let failure;
+  // Serialization started before this boundary may still need its retired engine.
+  // Its epoch guard prevents publishing bytes; wait before dropping engine fields.
+  await Promise.allSettled(pendingWork);
+  try { engine?.discardForSanitization(); } catch (error) { failure = error; }
+  if (failure) throw failure;
+  if (!isDocumentDiscardedForSanitization()) throw new Error('Native document purge incomplete');
+}
+function isDocumentDiscardedForSanitization() {
+  return isNativeContextSelectionClear() && !state.engine && !state.snapshotCache && !state.editing && !state.selection && !state.textSel &&
+    !state.undo.length && !state.redo.length && !state.paragraphs.length && !state.pendingAlt.length &&
+    !docFonts.size && !docFontsReady.size && !docFontsNull.size && !docFontFaces.size &&
+    !continuousPages?.engine && !continuousPages?.slots.length;
+}
+
+// Capture page-local metadata before yielding; navigation may change pageIndex.
+async function captureSnapshot() {
+  const engine = P();
+  if (!engine?.doc) { state.snapshotCache = null; return null; }
+  const revision = getDocumentRevision();
+  const epoch = state.docEpoch, doc = engine.doc;
+  const pageIndex = engine.pageIndex;
+  const newMarks = engine.untaggedMarks();
+  const altText = (state.pendingAlt || []).map((item) => ({ ...item }));
+  const incremental = (state.docInfo?.signatures || 0) > 0;
+  // PDF serialization may change IDs without changing content. Reuse one raw
+  // serialization per engine revision, including concurrent checkpoint readers.
+  let cache = state.snapshotCache;
+  if (!cache || cache.engine !== engine || cache.doc !== doc || cache.epoch !== epoch ||
+      cache.revision !== revision || cache.incremental !== incremental) {
+    cache = { engine, doc, epoch, revision, incremental,
+      bytes: engine.saveSpliced(incremental ? { incremental: true } : undefined)
+        .then(bytes => bytes ? new Uint8Array(bytes) : null) };
+    state.snapshotCache = cache;
+  }
+  let raw;
+  try { raw = await cache.bytes; }
+  catch (error) {
+    if (state.snapshotCache === cache) state.snapshotCache = null;
+    throw error;
+  }
+  if (!raw || P() !== engine || engine.doc !== doc || state.docEpoch !== epoch || getDocumentRevision() !== revision) {
+    if (state.snapshotCache === cache) state.snapshotCache = null;
+    return null;
+  }
+  let bytes = new Uint8Array(raw);
+  const pages = new Set(altText.map(item => item.pageIndex));
+  if (newMarks.length) pages.add(pageIndex);
+  for (const targetPage of pages) {
+    bytes = applyTagSurgery(bytes, { pageIndex: targetPage,
+      newMarks: targetPage === pageIndex ? newMarks : [],
+      altText: altText.filter(item => item.pageIndex === targetPage) });
+  }
+  // Surgery affects returned bytes only. Keep staged alt text for later snapshots.
+  return { bytes, revision };
+}
+
+// Recovery never shows export consent or interrupts the active caret session.
+// null means no safe checkpoint is available yet, not that changes were saved.
+function isRecoveryAllowed() { return !state.originalEncrypted; }
+
+async function createRecoverySnapshot() {
+  if (!P()?.doc || state.originalEncrypted || hasPendingEdits()) return null;
+  return captureSnapshot();
+}
+
+// A snapshot also powers the graphic studio without marking edits saved.
+async function exportSnapshot() {
+  const engine = P();
+  const revision = getDocumentRevision();
+  if (!engine?.doc) return null;
+  const plaintextAllowed = !state.originalEncrypted || (confirmPlaintextExport
+    ? await confirmPlaintextExport()
+    : window.confirm(uiText('Exportované PDF nebude chráněno heslem. Chcete pokračovat?'))) === true;
+  if (!plaintextAllowed) {
+    toast(uiText('Export cancelled. This export would not be password-protected.'));
+    return null;
+  }
+  if (P() !== engine || getDocumentRevision() !== revision) return null;
+  releaseSelection();
+  const result = await captureSnapshot();
+  return result?.bytes ?? null;
+}
+
+// In-memory composition only; recovery and disk exports retain their own consent gates.
+async function captureStudioSnapshot({ commit = true } = {}) {
+  if (!P()?.doc) return null;
+  if (commit) releaseSelection();
+  else if (hasPendingEdits()) return null;
+  return captureSnapshot();
 }
 
 async function saveFile() {
-  endEdit(true);
-  const incremental = (state.docInfo?.signatures || 0) > 0;
-  let bytes = await P().saveSpliced(
-    incremental ? { incremental: true } : undefined
-  );
-  if (!bytes) {
-    toast('Save failed.');
-    return;
-  }
-  try {
-    const newMarks = P().untaggedMarks();
-    const altText = state.pendingAlt || [];
-    if (newMarks.length || altText.length) {
-      bytes = applyTagSurgery(bytes, {
-        pageIndex: P().pageIndex,
-        newMarks,
-        altText,
-      });
-      state.pendingAlt = [];
-    }
-  } catch (e) {
-    console.warn('tag surgery skipped:', e);
-  }
+  const engine = P(), epoch = state.docEpoch;
+  const bytes = await exportSnapshot();
+  if (!bytes || P() !== engine || state.docEpoch !== epoch) return;
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -9439,16 +9733,17 @@ function wireUI() {
   });
 
   $('file').addEventListener('change', (e) => {
-    if (e.target.files[0]) openFile(e.target.files[0]);
+    if (e.target.files[0]) requestOpen(e.target.files[0]);
   });
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
+    if (document.body.dataset.editorMode === 'studio') return;
     e.preventDefault();
     const f = [...(e.dataTransfer?.files || [])].find(
       (x) => x.type === 'application/pdf' || /\.pdf$/i.test(x.name)
     );
-    if (f) openFile(f);
-    else if (e.dataTransfer?.files?.length) toast('Drop a PDF file.');
+    if (f) requestOpen(f);
+    else if (e.dataTransfer?.files?.length) toast(uiText('Drop a PDF file.'));
   });
   $('save').addEventListener('click', saveFile);
   $('undo').addEventListener('click', () => restore(state.undo, state.redo));
@@ -9493,13 +9788,16 @@ function wireUI() {
     objectOp((h) => P().flipObject(h, false))
   );
   const replaceImageFromBlob = async (handle, blobOrFile, label) => {
+    const engine = P(), epoch = state.docEpoch;
     const bmp = await createImageBitmap(blobOrFile);
+    if (P() !== engine || state.docEpoch !== epoch) { bmp.close(); return false; }
     const cv = document.createElement('canvas');
     cv.width = bmp.width;
     cv.height = bmp.height;
     const cx = cv.getContext('2d');
     cx.drawImage(bmp, 0, 0);
     const rgba = cx.getImageData(0, 0, cv.width, cv.height).data;
+    bmp.close();
     const bgra = new Uint8Array(rgba.length);
     for (let i = 0; i < rgba.length; i += 4) {
       bgra[i] = rgba[i + 2];
@@ -9511,6 +9809,7 @@ function wireUI() {
     if (P().replaceImage(handle, bgra, cv.width, cv.height)) {
       scheduleRegen();
       state.dirty = true;
+      documentChanged();
       renderPage();
       drawOverlay();
       updateChrome();
@@ -9518,7 +9817,7 @@ function wireUI() {
       return true;
     }
     if (state.undo.length) state.undo.pop();
-    toast('Image replace failed.');
+    toast(uiText('Image replace failed.'));
     return false;
   };
   $('replImg').addEventListener('click', () => $('replImgFile').click());
@@ -9537,31 +9836,35 @@ function wireUI() {
     const sel = state.selection;
     if (sel?.kind !== 'object' || sel.type !== OBJ.IMAGE) return;
     const mcid = P().objectMcid(sel.handle);
+    const altPageIndex = P().pageIndex;
     if (mcid < 0) {
-      toast('This image carries no structure tag.');
+      toast(uiText('This image carries no structure tag.'));
       return;
     }
     const current =
-      (state.pendingAlt || []).find((a) => a.mcid === mcid)?.text ??
+      (state.pendingAlt || []).find((a) => a.mcid === mcid && a.pageIndex === altPageIndex)?.text ??
       P().structAltFor(mcid) ??
       '';
     const text = prompt(
-      'Alternate text for this image (screen readers):',
+      uiText('Alternate text for this image (screen readers):'),
       current
     );
     if (text === null) return;
-    state.pendingAlt = (state.pendingAlt || []).filter((a) => a.mcid !== mcid);
-    state.pendingAlt.push({ mcid, text });
+    state.pendingAlt = (state.pendingAlt || []).filter((a) => a.mcid !== mcid || a.pageIndex !== altPageIndex);
+    state.pendingAlt.push({ mcid, text, pageIndex: altPageIndex });
     state.dirty = true;
-    toast('Alt text staged — applies on Save.');
+    documentChanged();
+    toast(uiText('Alt text staged — applies on Save.'));
   });
 
   $('extEdit').addEventListener('click', async () => {
+    const engine = P(), epoch = state.docEpoch;
+    const current = () => P() === engine && state.docEpoch === epoch;
     const sel = state.selection;
     if (sel?.kind !== 'object' || sel.type !== OBJ.IMAGE) return;
     const img = P().renderImageObject(sel.handle);
     if (!img) {
-      toast('Could not export this image.');
+      toast(uiText('Could not export this image.'));
       return;
     }
     const cv = document.createElement('canvas');
@@ -9573,6 +9876,7 @@ function wireUI() {
       0
     );
     const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+    if (!current()) return;
     let fh;
     try {
       fh = await showSaveFilePicker({
@@ -9584,16 +9888,20 @@ function wireUI() {
     } catch {
       return;
     }
+    if (!current()) return;
     const w = await fh.createWritable();
+    if (!current()) { await w.abort(); return; }
     await w.write(blob);
     await w.close();
     let lastSeen = (await fh.getFile()).lastModified;
-    toast('Exported. Edit + save the PNG in any app — changes re-import live.');
+    if (!current()) return;
+    toast(uiText('Exported. Edit + save the PNG in any app — changes re-import live.'));
     if (state.extWatch) clearInterval(state.extWatch);
     const handle = sel.handle;
     state.extWatch = setInterval(async () => {
       try {
         const f = await fh.getFile();
+        if (!current()) return;
         if (f.lastModified === lastSeen) return;
         lastSeen = f.lastModified;
         await replaceImageFromBlob(handle, f, 'External edit re-imported.');
@@ -9623,6 +9931,7 @@ function wireUI() {
       P().historyRemoveObject(state.selection.handle);
       state.selection = null;
       state.dirty = true;
+      documentChanged();
       refreshAfterMutation();
     } else if (state.selection?.kind === 'para') {
       snapshotEdit('delete text');
@@ -9630,6 +9939,7 @@ function wireUI() {
       replaceParagraph(state.selection.para.id, null);
       state.selection = null;
       state.dirty = true;
+      documentChanged();
       refreshAfterMutation();
     } else if (state.selection?.kind === 'multi') {
       snapshot();
@@ -9641,6 +9951,7 @@ function wireUI() {
       }
       state.selection = null;
       state.dirty = true;
+      documentChanged();
       refreshAfterMutation();
     }
   });
@@ -9686,7 +9997,7 @@ function wireUI() {
     if (!P()?.doc) return;
     const t = P().pageTextJson();
     if (!t || !t.text) {
-      toast('No text on this page.');
+      toast(uiText('No text on this page.'));
       return;
     }
     try {
@@ -9699,7 +10010,7 @@ function wireUI() {
           (furniture ? ` (${furniture} header/footer)` : '')
       );
     } catch {
-      toast('Clipboard permission denied.');
+      toast(uiText('Clipboard permission denied.'));
     }
   });
 
@@ -9841,8 +10152,8 @@ function wireUI() {
   $('findDone').addEventListener('click', () => ($('findbar').hidden = true));
   const findReport = (r) => {
     $('findStatus').textContent = r
-      ? `${r.i + 1} of ${r.total} on page ${r.page + 1}: ${r.text}`
-      : 'Not found';
+      ? uiText('{current} of {total} on page {page}: {text}', { current: r.i + 1, total: r.total, page: r.page + 1, text: r.text })
+      : uiText('Not found');
   };
   const findGo = (dir) => {
     const n = $('findText').value;
@@ -9862,19 +10173,21 @@ function wireUI() {
     if (!n) return;
     if (!state.find || state.find.i < 0) findStep(n, 1);
     const done = replaceCurrent(n, $('replText').value);
-    $('findStatus').textContent = done ? 'Replaced 1' : 'Not found';
+    $('findStatus').textContent = done ? uiText('Replaced 1') : uiText('Not found');
     if (done) findReport(findStep(n, 1));
   });
   $('replAll').addEventListener('click', () => {
     const n = $('findText').value;
     if (!n) return;
     const c = replaceAll(n, $('replText').value);
-    $('findStatus').textContent = 'Replaced ' + c;
+    $('findStatus').textContent = uiText('Replaced {count}', { count: c });
   });
 
   stagePointHandlers();
 
   window.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.target.closest?.('.studio-native-overlay')) return;
+    if (document.body.dataset.editorMode === 'studio') return;
     const meta = e.metaKey || e.ctrlKey;
     const typing =
       document.activeElement &&
@@ -9931,6 +10244,7 @@ function nudgeSelection(dx, dy) {
     P().translateObject(state.selection.handle, dx, dy);
     state.selection.bounds = P().objectBounds(state.selection.handle);
     state.dirty = true;
+    documentChanged();
   } else if (state.selection?.kind === 'para') {
     const p = state.selection.para;
     if (P().moveParagraph(p.id, dx, dy)) {
@@ -9942,10 +10256,12 @@ function nudgeSelection(dx, dy) {
       replaceParagraph(p.id, moved);
       state.selection = { kind: 'para', para: moved };
       state.dirty = true;
+      documentChanged();
     }
   } else if (state.selection?.kind === 'multi') {
     for (const it of state.selection.items) moveItem(it, dx, dy);
     state.dirty = true;
+    documentChanged();
   } else {
     if (state.undo.length) state.undo.pop();
     return;
@@ -10039,6 +10355,7 @@ function rotateSelection(deg) {
   for (const h of handles) noteMatrix(h);
   P().rotateObjectsAbout(handles, deg, cx, cy);
   state.dirty = true;
+  documentChanged();
   refreshModel();
   state.selection = null;
   if (keepPara) {
@@ -10063,6 +10380,7 @@ function objectOp(fn, note) {
   fn(state.selection.handle);
   state.selection.bounds = P().objectBounds(state.selection.handle);
   state.dirty = true;
+  documentChanged();
   refreshAfterMutation();
   if (note) toast(note);
 }
@@ -10073,6 +10391,7 @@ function arrangeSel(op) {
   noteZOrder(state.selection.handle);
   if (P().arrangeObject(state.selection.handle, op)) {
     state.dirty = true;
+    documentChanged();
     refreshAfterMutation();
   } else if (state.undo.length) state.undo.pop();
 }
@@ -10080,7 +10399,7 @@ function arrangeSel(op) {
 function duplicateSelection() {
   if (state.selection?.kind === 'object') {
     if (state.selection.type !== OBJ.IMAGE) {
-      toast('Duplicate currently supports images and text boxes.');
+      toast(uiText('Duplicate currently supports images and text boxes.'));
       return;
     }
     snapshotEdit('duplicate');
@@ -10094,6 +10413,7 @@ function duplicateSelection() {
         bounds: P().objectBounds(clone),
       };
       state.dirty = true;
+      documentChanged();
       refreshAfterMutation();
     } else if (state.undo.length) state.undo.pop();
   } else if (state.selection?.kind === 'para') {
@@ -10104,10 +10424,11 @@ function duplicateSelection() {
       state.paragraphs.push(created);
       state.selection = { kind: 'para', para: created };
       state.dirty = true;
+      documentChanged();
       refreshAfterMutation();
     } else {
       if (state.undo.length) state.undo.pop();
-      toast("This text block can't be duplicated.");
+      toast(uiText("This text block can't be duplicated."));
     }
   }
 }
@@ -10117,7 +10438,7 @@ const localFontMeta = new Map();
 async function loadSystemFonts(silent = false) {
   if (!window.queryLocalFonts) {
     if (!silent)
-      toast('System font access needs Chrome/Edge (Local Font Access API).');
+      toast(uiText('System font access needs Chrome/Edge (Local Font Access API).'));
     return;
   }
   try {
@@ -10215,16 +10536,19 @@ function preloadScriptFonts() {
 }
 
 async function addImageFromFile(file) {
+  const engine = P(), epoch = state.docEpoch;
   const bitmap = await createImageBitmap(file);
+  if (P() !== engine || state.docEpoch !== epoch) { bitmap.close(); return; }
   const c = document.createElement('canvas');
   c.width = bitmap.width;
   c.height = bitmap.height;
   const cx = c.getContext('2d');
   cx.drawImage(bitmap, 0, 0);
   const rgba = cx.getImageData(0, 0, c.width, c.height).data;
+  bitmap.close();
   const maxW = 240,
-    w = Math.min(maxW, bitmap.width),
-    h = w * (bitmap.height / bitmap.width);
+    w = Math.min(maxW, c.width),
+    h = w * (c.height / c.width);
   const x = P().pageWidth / 2 - w / 2,
     y = P().pageHeight / 2 - h / 2;
   snapshotEdit('insert image');
@@ -10247,19 +10571,37 @@ async function addImageFromFile(file) {
       bounds: P().objectBounds(handle),
     };
     state.dirty = true;
+    documentChanged();
     setTool('edit');
     refreshAfterMutation();
-    toast('Image added');
+    toast(uiText('Image added'));
   } else if (state.undo.length) state.undo.pop();
 }
 
 export {
   openFile,
+  setOpenRequestHandler,
+  setConfirmPlaintextExport,
+  hasUnsavedChanges,
+  addBlankPage,
   engineReady,
   setZoom,
   getZoom,
   getDocDescription,
+  getCurrentPageIndex,
   setOnSaved,
   endEdit,
   saveFile,
+  exportSnapshot,
+  captureStudioSnapshot,
+  getPageSurface,
+  releaseSelection,
+  selectStudioPage,
+  createRecoverySnapshot,
+  isRecoveryAllowed,
+  getDocumentRevision,
+  getNativeRevision,
+  hasPendingEdits,
+  discardDocumentForSanitization,
+  isDocumentDiscardedForSanitization,
 };

@@ -1,0 +1,284 @@
+/* Both toolsets live below the same document application's product header. */
+.product-header {
+  position: relative;
+  z-index: 20001;
+}
+#graphic-studio[hidden] {
+  display: none;
+}
+#graphic-studio {
+  position: fixed;
+  inset: 64px 0 0;
+  z-index: 20000;
+  display: flex;
+  flex-direction: column;
+  background: #e9edf3;
+  color: #223047;
+  font:
+    13px/1.4 'Segoe UI',
+    sans-serif;
+}
+.studio-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 50px;
+  padding: 9px 16px;
+  background: white;
+  border-bottom: 1px solid #d3dce8;
+}
+.studio-header strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #61718a;
+  margin-right: 4px;
+}
+.studio-header label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.studio-header input {
+  width: 160px;
+}
+#graphic-studio button,
+.studio-dialog button {
+  cursor: pointer;
+  border: 1px solid #b7c5d9;
+  background: white;
+  color: #223047;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font: inherit;
+}
+#graphic-studio button:hover,
+.studio-dialog button:hover {
+  background: #e2eaf6;
+}
+#graphic-studio button:disabled,
+.studio-dialog button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#graphic-studio button:focus-visible,
+.studio-dialog button:focus-visible {
+  outline: 3px solid #2459c4;
+  outline-offset: 2px;
+}
+#graphic-studio #studio-export {
+  background: #2459c4;
+  color: white;
+  border-color: #2459c4;
+}
+#graphic-studio #studio-close {
+  color: #2459c4;
+  border-color: #b6c8e8;
+  background: #f2f6fd;
+}
+#graphic-studio input,
+#graphic-studio select,
+.studio-dialog input,
+.studio-dialog select {
+  padding: 6px;
+  border: 1px solid #b7c5d9;
+  border-radius: 4px;
+  color: #223047;
+  background: white;
+}
+.studio-storage {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 5px 16px;
+  font-size: 11px;
+  background: #f2f5f9;
+  border-bottom: 1px solid #d3dce8;
+}
+.studio-storage label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.studio-storage button {
+  font-size: 11px !important;
+  padding: 3px 6px !important;
+}
+#studio-status {
+  margin-left: auto;
+}
+#studio-canvas-host {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.studio-dialog {
+  max-width: min(960px, 94vw);
+  max-height: 90vh;
+  padding: 24px;
+  border: 1px solid #c7d3e4;
+  border-radius: 8px;
+  color: #223047;
+  background: white;
+  font:
+    14px/1.5 'Segoe UI',
+    sans-serif;
+  box-shadow: 0 20px 80px #15284444;
+}
+.studio-dialog::backdrop {
+  background: #14213888;
+}
+.studio-dialog h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+.studio-dialog > button {
+  float: right;
+}
+.studio-export-form {
+  display: grid;
+  gap: 16px;
+  clear: both;
+  padding-top: 16px;
+  max-width: 560px;
+}
+.studio-export-form label {
+  display: grid;
+  gap: 6px;
+}
+.studio-export-form p {
+  font-size: 12px;
+}
+.studio-export-form [role='alert'] {
+  color: #b42318;
+}
+@media (max-width: 800px) {
+  #graphic-studio {
+    top: 54px;
+  }
+  .studio-header {
+    padding: 6px;
+    gap: 4px;
+  }
+  .studio-header strong {
+    width: 100%;
+    font-size: 11px;
+  }
+  .studio-header input {
+    width: 110px;
+  }
+  .studio-storage {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+}
+@media (max-width: 480px) {
+  #graphic-studio .studio-header button {
+    padding: 6px;
+    font-size: 12px;
+  }
+  .studio-header {
+    max-height: 165px;
+    overflow: auto;
+    flex-shrink: 0;
+  }
+  .studio-storage {
+    max-height: 72px;
+    overflow: auto;
+    flex-shrink: 0;
+  }
+}
+#document-toolbar[hidden] { display:none; }
+body.unified-document #uploader,body.unified-document .product-footer { display:none; }
+body[data-editor-mode=studio] #text-editor-app { display:none; }
+#document-toolbar #studio-status { flex-basis:100%; font-size:11px; color:#61718a; }
+#document-toolbar { position:fixed; left:0; right:0; top:64px; z-index:20002; box-sizing:border-box; }
+body.unified-document #graphic-studio { top:calc(64px + var(--document-toolbar-height, 64px)); }
+body.unified-document #text-editor-app { top:calc(64px + var(--document-toolbar-height, 64px)); }
+body.unified-document #text-editor-app #save { display:none; }
+#document-toolbar button { cursor:pointer; border:1px solid #b7c5d9; background:white; color:#203651; padding:7px 10px; border-radius:5px; font:inherit; }
+#document-toolbar #studio-export { background:#2459c4; color:white; }
+#document-toolbar input { padding:6px; border:1px solid #b7c5d9; border-radius:4px; }
+.design-pdf-overlay { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:5; }
+.studio-dialog:has(.studio-page-manager) { max-height:85vh; overflow:auto; width:min(760px,90vw); }
+.studio-page-manager { display:grid; gap:16px; }
+.studio-page-manager > div { display:flex; flex-wrap:wrap; gap:8px; }
+.studio-page-manager ol { max-height:140px; overflow:auto; padding-inline-start:24px; }
+.studio-page-manager fieldset { display:flex; flex-wrap:wrap; gap:12px; padding:14px; border:1px solid #b7c5d9; border-radius:6px; min-width:0; }
+.studio-page-manager label { display:flex; flex-direction:column; gap:4px; }
+.studio-page-manager input[type=number] { width:110px; }
+.studio-page-manager input[type=file] { max-width:100%; }
+.studio-page-manager fieldset p { flex-basis:100%; margin:0; }
+.studio-page-manager [role=alert] { color:#b42318; }
+@media(max-width:800px) {
+  #document-toolbar { top:54px; }
+  body.unified-document #graphic-studio,body.unified-document #text-editor-app { top:calc(54px + var(--document-toolbar-height, 64px)); }
+}
+
+/* One persistent viewport: the native PDF page owns zoom and scrolling; editable
+   graphic objects are mounted transparently above that exact page. */
+.studio-native-surface .studio-workspace { position: relative; overflow: hidden; }
+.studio-native-surface .studio-workspace > .studio-stage,
+.studio-native-surface .studio-workspace > .studio-page-heading { display: none; }
+body.unified-document .studio-native-surface #text-editor-app {
+  position: relative; inset: auto; display: flex; flex: 1; width: 100%; min-height: 0;
+  z-index: auto; border: 0;
+}
+.studio-native-surface #text-editor-app #main { min-width: 0; flex: 1; }
+.studio-native-surface #text-editor-app #stage { min-width: 0; width: 100%; }
+.studio-native-surface #text-editor-app #inspector { display: none !important; }
+.studio-native-surface #text-editor-app #toolbar > :not(#native-text-toolbar) { display: none !important; }
+.studio-native-surface #text-editor-app #toolbar { min-height: 0; padding: 0; border: 0; }
+.studio-native-surface #text-editor-app #native-text-toolbar { width: 100%; padding: 6px; }
+.studio-native-surface[data-selection=graphic] #text-editor-app #native-text-toolbar { display: none; }
+.studio-native-surface:not([data-selection=graphic]) > .studio-text-toolbar { display: none; }
+.studio-native-surface #text-editor-app #viewbar { max-width: calc(100% - 16px); }
+
+.studio-native-surface > .studio-toolbar [data-toolbar-action="zoom-out"],
+.studio-native-surface > .studio-toolbar [data-toolbar-action="zoom-in"],
+.studio-native-surface > .studio-toolbar [data-toolbar-action="fit"] { display: none; }
+#document-toolbar .document-actions { display: flex; gap: 6px; }
+#document-toolbar label.btn { cursor: pointer; border: 1px solid #b7c5d9; border-radius: 5px; padding: 7px 10px; }
+
+/* Shared history lives in the document strip; hidden tool rows must not consume
+   an implicit grid row or move the page into a content-sized row. */
+.studio-native-surface { grid-template-rows: 0 auto minmax(0, 1fr) 24px; }
+.studio-native-surface > .studio-toolbar { display: none; grid-row: 1; }
+.studio-native-surface > .studio-text-toolbar { grid-row: 2; }
+.studio-native-surface > .studio-library { grid-row: 3; grid-column: 1; }
+.studio-native-surface > .studio-workspace { grid-row: 3; grid-column: 2; }
+.studio-native-surface > .studio-properties { grid-row: 3; grid-column: 3; }
+.studio-native-surface > .studio-status { grid-row: 4; }
+.studio-native-surface > .studio-text-toolbar:not(:has(button)) { display: none; }
+.studio-native-surface #text-editor-app #toolbar:has(#native-text-toolbar[aria-disabled='true']) { display: none; }
+#document-tools { position: relative; }
+#document-tools > summary { cursor: pointer; padding: 7px 10px; border: 1px solid #b7c5d9; border-radius: 5px; white-space: nowrap; }
+#document-tools .document-tool-actions { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; min-width: 260px; max-width: 90vw; max-height: 65vh; overflow: auto; display: grid; gap: 6px; padding: 12px; background: white; border: 1px solid #b7c5d9; border-radius: 7px; box-shadow: 0 8px 30px #2230472a; }
+#document-tools:not([open]) .document-tool-actions { display: none; }
+#document-toolbar { flex-wrap: nowrap; }
+#document-toolbar #studio-export { margin-inline-start: auto; }
+#document-toolbar input { max-width: 160px; }
+/* Native absolute centering overlaps zoom controls in the narrower shared pane. */
+.studio-native-surface #text-editor-app #viewbar {
+  position: static; inset: auto; transform: none; width: 100%; max-width: 100%;
+  margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px;
+}
+.studio-native-surface #text-editor-app #viewbar .fit-controls { flex: 1 1 100%; width: 100%; }
+.studio-native-surface #text-editor-app #viewbar .fit-controls .btn {
+  width: auto; height: auto; min-height: 30px; flex: 1 1 auto; white-space: normal; padding: 5px 8px;
+}
+.studio-native-surface #text-editor-app #viewbar .vbcenter,
+.studio-native-surface #text-editor-app #viewbar .vbzoom {
+  position: static; inset: auto; transform: none; display: flex; flex: 0 0 auto; gap: 4px;
+}
+.studio-native-surface #text-editor-app #viewbar .vbright { display: none; }
+@media(max-width:700px) {
+  .studio-native-surface { grid-template-rows: 0 auto minmax(160px, 1fr) 130px 24px; }
+  .studio-native-surface > .studio-properties { grid-row: 4; grid-column: 1/-1; }
+  .studio-native-surface > .studio-status { grid-row: 5; }
+  #document-toolbar { gap: 4px; }
+  #document-toolbar > label > span { display: none; }
+  #document-toolbar input { width: 90px; }
+  #document-toolbar button, #document-tools > summary { padding: 6px; font-size: 12px; }
+}

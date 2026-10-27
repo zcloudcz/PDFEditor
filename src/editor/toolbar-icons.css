@@ -1,0 +1,28 @@
+#document-toolbar .toolbar-button-with-icon:not([hidden]),
+#toolbar .toolbar-button-with-icon:not([hidden]),
+.studio-toolbar .toolbar-button-with-icon:not([hidden]),
+#viewbar .toolbar-button-with-icon:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+#document-toolbar .toolbar-button-with-icon > .ph,
+#toolbar .toolbar-button-with-icon > .ph,
+.studio-toolbar .toolbar-button-with-icon > .ph,
+#viewbar .toolbar-button-with-icon > .ph {
+  flex: 0 0 auto;
+  font-size: 1.125rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+@media (max-width: 680px) {
+  #document-toolbar .toolbar-button-with-icon,
+  #toolbar .toolbar-button-with-icon,
+  .studio-toolbar .toolbar-button-with-icon,
+  #viewbar .toolbar-button-with-icon {
+    gap: 0.25rem;
+  }
+}

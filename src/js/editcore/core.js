@@ -659,6 +659,13 @@ export class PdfEngine {
     this.page = this.session = this.doc = this._docBuf = 0;
   }
 
+  /** Irreversible retirement of this instance, not a reusable close. This drops
+   * references; it cannot promise physical erasure of JavaScript/WASM memory. */
+  discardForSanitization() {
+    try { try { this.renderParagraphLiveEnd(); } finally { this.close(); } }
+    finally { for (const key of Object.keys(this)) delete this[key]; }
+  }
+
   loadPage(index) {
     const M = this.M;
     this.renderParagraphLiveEnd();
@@ -694,6 +701,28 @@ export class PdfEngine {
       M._ec_mark_fonts_fragile(this.session, this.page);
     }
     this._readPageTransform();
+  }
+
+  appendBlankPage(width, height) {
+    if (!this.doc) throw new Error('Open a document first.');
+    if (![width, height].every(n => Number.isFinite(n) && n >= 1 && n <= 14400))
+      throw new Error('Page dimensions must be between 1 and 14400 PDF points.');
+    if (!this.M._FPDFPage_New || !this.M._FPDFPage_Delete)
+      throw new Error('This engine cannot insert pages.');
+    if (!this.generateContent()) throw new Error('Current page could not be saved.');
+    const index = this.pageCount;
+    const page = this.M._FPDFPage_New(this.doc, index, width, height);
+    if (!page) throw new Error('Blank page could not be created.');
+    const ok = this.M._FPDFPage_GenerateContent(page);
+    this.M._FPDF_ClosePage(page);
+    if (!ok) {
+      this.M._FPDFPage_Delete(this.doc, index);
+      throw new Error('Blank page could not be initialized.');
+    }
+    this.pageCount = this.M._FPDF_GetPageCount(this.doc);
+    this._spliceOk = false;
+    this._splicePlans = null;
+    return index;
   }
 
   setFragilePages(pages) {
@@ -1992,6 +2021,7 @@ const OBJECT_MUTATORS = [
   'open',
   'reopen',
   'loadPage',
+  'appendBlankPage',
   'buildModel',
   'generateContent',
   'normalizeFontsForEdit',
