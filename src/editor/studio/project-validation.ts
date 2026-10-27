@@ -17,7 +17,11 @@ const str = (v: unknown, max = 10000) =>
 const color = (v: unknown) =>
   typeof v === 'string' && /^(#[0-9a-f]{6}|none)$/i.test(v);
 export function base64Bytes(s: string): Uint8Array {
-  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  // Plain loop: Uint8Array.from with a callback per byte was the hottest path for large PDFs.
+  const binary = atob(s);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 export function bytesBase64(bytes: Uint8Array): string {
   let s = '';

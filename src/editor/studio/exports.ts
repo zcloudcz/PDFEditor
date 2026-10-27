@@ -51,18 +51,41 @@ async function pdfJs() {
   mod.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   return mod;
 }
-async function sourcePage(project: StudioProject, page: StudioPage) {
-  const pdfjs = await pdfJs();
-  const doc = await pdfjs.getDocument({
-    data: base64Bytes(project.sourcePdf!),
-    isEvalSupported: false,
-    standardFontDataUrl: '/pdfjs-viewer/standard_fonts/',
-  }).promise;
+type PdfJsDocument = Awaited<ReturnType<Awaited<ReturnType<typeof pdfJs>>['getDocument']>['promise']>;
+type SharedSource = { source: string; doc: Promise<PdfJsDocument>; users: number; stale: boolean };
+// Every page background render reuses one parsed copy of the source PDF. Decoding and parsing
+// the whole file per page made a 29-page, 27 MB document cost ~40 s of main-thread time.
+// ponytail: keeps the last parsed source alive until the source changes; fine for one open document.
+let shared: SharedSource | undefined;
+const release = (entry: SharedSource) => {
+  if (entry.stale && !entry.users) void entry.doc.then(doc => doc.destroy(), () => {});
+};
+async function withSourcePage<T>(project: StudioProject, page: StudioPage, visit: (page: Awaited<ReturnType<PdfJsDocument['getPage']>>) => Promise<T>): Promise<T> {
+  const source = project.sourcePdf!;
+  if (shared?.source !== source) {
+    if (shared) { shared.stale = true; release(shared); }
+    const entry: SharedSource = {
+      source,
+      doc: pdfJs().then(pdfjs => pdfjs.getDocument({
+        data: base64Bytes(source),
+        isEvalSupported: false,
+        standardFontDataUrl: '/pdfjs-viewer/standard_fonts/',
+      }).promise),
+      users: 0,
+      stale: false,
+    };
+    // A failed parse must not stay cached; the next call retries.
+    entry.doc.catch(() => { if (shared === entry) shared = undefined; });
+    shared = entry;
+  }
+  const entry = shared;
+  entry.users++;
   try {
-    return { doc, page: await doc.getPage(page.sourcePageIndex! + 1) };
-  } catch (e) {
-    await doc.destroy();
-    throw e;
+    const doc = await entry.doc;
+    return await visit(await doc.getPage(page.sourcePageIndex! + 1));
+  } finally {
+    entry.users--;
+    release(entry);
   }
 }
 export function pdfBackgroundScale(
@@ -93,23 +116,24 @@ export async function renderPdfBackground(
 ): Promise<string | null> {
   const page = getPage(project, pageId);
   if (page.sourcePageIndex === undefined) return null;
-  const source = await sourcePage(project, page);
-  try {
-    const natural = source.page.getViewport({ scale: 1 });
+  return withSourcePage(project, page, async sourcePage => {
+    const natural = sourcePage.getViewport({ scale: 1 });
     const scale = pdfBackgroundScale(
       natural.width,
       natural.height,
       requestedScale
     );
-    const viewport = source.page.getViewport({ scale });
+    const viewport = sourcePage.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
-    await source.page.render({ canvas, viewport }).promise;
-    return canvas.toDataURL('image/png');
-  } finally {
-    await source.doc.destroy();
-  }
+    try {
+      await sourcePage.render({ canvas, viewport }).promise;
+      return canvas.toDataURL('image/png');
+    } finally {
+      sourcePage.cleanup();
+    }
+  });
 }
 function objectSvg(o: StudioObject, resolvedImage?: string): string {
   const style = `fill="${o.fill}" stroke="${o.stroke}" stroke-width="${o.strokeWidth}"`;
