@@ -16,7 +16,11 @@ const str = (v: unknown, max = 10000) =>
   );
 const color = (v: unknown) =>
   typeof v === 'string' && /^(#[0-9a-f]{6}|none)$/i.test(v);
+// Native base64 (Chrome/Edge 140+, Firefox 133+, Safari 18.2+) is ~20x faster on large PDFs,
+// which autosave and history encode/decode on every change. Older runtimes use the fallbacks.
+const nativeBase64 = Uint8Array as unknown as { fromBase64?: (s: string) => Uint8Array };
 export function base64Bytes(s: string): Uint8Array {
+  if (nativeBase64.fromBase64) return nativeBase64.fromBase64(s);
   // Plain loop: Uint8Array.from with a callback per byte was the hottest path for large PDFs.
   const binary = atob(s);
   const bytes = new Uint8Array(binary.length);
@@ -24,11 +28,16 @@ export function base64Bytes(s: string): Uint8Array {
   return bytes;
 }
 export function bytesBase64(bytes: Uint8Array): string {
+  const native = (bytes as Uint8Array & { toBase64?: () => string }).toBase64;
+  if (native) return native.call(bytes);
   let s = '';
   for (let i = 0; i < bytes.length; i += 32768)
     s += String.fromCharCode(...bytes.subarray(i, i + 32768));
   return btoa(s);
 }
+// The same source PDF (tens of MB of base64) is validated many times per save; the regex
+// scan over it only needs to run once per distinct source.
+let lastValidSource: string | undefined;
 export function validateProject(
   value: unknown
 ): asserts value is StudioProject {
@@ -47,9 +56,10 @@ export function validateProject(
     p.sourcePdf !== undefined &&
     (typeof p.sourcePdf !== 'string' ||
       p.sourcePdf.length > MAX ||
-      !/^JVBERi0[A-Za-z0-9+/]*={0,2}$/.test(p.sourcePdf))
+      (p.sourcePdf !== lastValidSource && !/^JVBERi0[A-Za-z0-9+/]*={0,2}$/.test(p.sourcePdf)))
   )
     fail();
+  if (p.sourcePdf !== undefined) lastValidSource = p.sourcePdf;
   const ids = new Set<string>();
   let count = 0;
   for (const page of p.pages) {

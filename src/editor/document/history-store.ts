@@ -10,39 +10,9 @@ type StoredProject = Omit<StudioProject, 'sourcePdf' | 'pages'> & {
 };
 type StoredCheckpoint = Omit<DocumentCheckpoint, 'project'> & { project: StoredProject };
 
-// SHA-256 over the canonical base64 payload. This synchronous implementation keeps
-// recordExternal synchronous for the editor's existing history button contract.
-function sha256(value: string): string {
-  const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311];
-  const fractional = (n: number) => (n % 1 * 0x100000000) | 0;
-  const h = primes.slice(0, 8).map(p => fractional(Math.sqrt(p)));
-  const k = primes.map(p => fractional(Math.cbrt(p)));
-  const bytes = new TextEncoder().encode(value);
-  const length = Math.ceil((bytes.length + 9) / 64) * 64;
-  const padded = new Uint8Array(length);
-  padded.set(bytes); padded[bytes.length] = 0x80;
-  const view = new DataView(padded.buffer);
-  const bits = bytes.length * 8;
-  view.setUint32(length - 8, Math.floor(bits / 0x100000000));
-  view.setUint32(length - 4, bits >>> 0);
-  const w = new Int32Array(64);
-  const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
-  for (let offset = 0; offset < length; offset += 64) {
-    for (let i = 0; i < 16; i++) w[i] = view.getInt32(offset + i * 4);
-    for (let i = 16; i < 64; i++) {
-      const a = w[i - 15], b = w[i - 2];
-      w[i] = (w[i - 16] + (rotr(a, 7) ^ rotr(a, 18) ^ (a >>> 3)) + w[i - 7] + (rotr(b, 17) ^ rotr(b, 19) ^ (b >>> 10))) | 0;
-    }
-    let [a, b, c, d, e, f, g, j] = h;
-    for (let i = 0; i < 64; i++) {
-      const t1 = (j + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + k[i] + w[i]) | 0;
-      const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
-      j = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
-    }
-    [a, b, c, d, e, f, g, j].forEach((part, i) => { h[i] = (h[i] + part) | 0; });
-  }
-  return h.map(part => (part >>> 0).toString(16).padStart(8, '0')).join('');
-}
+// Media are deduplicated by their payload string: Map compares strings natively, so no content
+// hash is computed. A JS SHA-256 over the whole source PDF cost ~1 s on every document change.
+let mediaKeys = 0;
 
 /** In-memory history stores media once and keeps only references in each state. */
 export class HistoryStore {
@@ -59,7 +29,7 @@ export class HistoryStore {
   get mediaCount(): number { return this.media.size; }
   get mediaCharacters(): number { return [...this.media.values()].reduce((n, v) => n + v.length, 0); }
   private ref(payload: string, mime: string, media: Map<string, string>, lookup: Map<string, string>): Reference {
-    const hash = lookup.get(payload) ?? sha256(payload);
+    const hash = lookup.get(payload) ?? `media-${++mediaKeys}`;
     const previous = media.get(hash);
     if (previous !== undefined && previous !== payload) throw new Error('History media hash collision');
     media.set(hash, payload);

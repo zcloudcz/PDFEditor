@@ -54,6 +54,20 @@ describe('continuous document viewport', () => {
     expect(wrap.parentElement).toBe(view.slots[0]);
     expect(activate).not.toHaveBeenCalled();
   });
+  it('defers page rendering while the user is scrolling', () => {
+    vi.useFakeTimers();
+    try {
+      const render = vi.spyOn(engine, 'renderPage');
+      stage.dispatchEvent(new Event('scroll'));
+      view.paintNearby();
+      expect(render).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(150);
+      view.paintNearby();
+      expect(render).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('activates clicked pages without changing viewport scroll and retains the overlay node', () => {
     const overlay = document.getElementById('overlay');
     stage.scrollTop = 300;
